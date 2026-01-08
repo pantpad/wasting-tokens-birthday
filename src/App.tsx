@@ -38,6 +38,14 @@ const SATURATION_SPIKE_INTENSITY = 200 // Saturation percentage for spikes (200%
 const COLOR_INVERSION_CHANCE = 0.01 // 1% chance per frame for color inversion
 const COLOR_INVERSION_DURATION = 200 // ms - how long inversion lasts
 
+// Zoom pulse constants
+const ZOOM_PULSE_START_LEVEL = 6 // Chaos level when zoom pulses begin
+const PULSE_MIN_INTERVAL = 300 // ms - pulse interval at level 6 (slower)
+const PULSE_MAX_INTERVAL = 800 // ms - pulse interval at level 6 (slower)
+const PULSE_MIN_INTERVAL_MAX_CHAOS = 200 // ms - pulse interval at max chaos (faster)
+const PULSE_SCALE_MIN = 1.0 // Minimum scale (normal size)
+const PULSE_SCALE_MAX = 1.1 // Maximum scale (10% larger)
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -124,6 +132,11 @@ function App() {
   const [isInverted, setIsInverted] = useState(false) // Color inversion state
   const colorAnimationFrameRef = useRef<number | null>(null)
   const inversionTimerRef = useRef<number | null>(null)
+  
+  // Zoom pulse state - track pulse scale for base video and clones
+  const [baseVideoPulseScale, setBaseVideoPulseScale] = useState(1.0) // Base video pulse scale
+  const [clonePulseScales, setClonePulseScales] = useState<Map<string, number>>(new Map()) // Clone pulse scales by ID
+  const pulseTimersRef = useRef<Map<string, number>>(new Map()) // Track pulse timers for cleanup
   
   /**
    * Time-based escalation system.
@@ -474,6 +487,111 @@ function App() {
   }, [chaosStarted, chaosLevel, isInverted])
   
   /**
+   * Zoom pulse effects - elements "breathe" by scaling from 1.0 to 1.1 and back.
+   * Activates at chaos level 6+ with frequency increasing with chaos level.
+   * Individual elements can pulse independently.
+   */
+  useEffect(() => {
+    // Only apply zoom pulses if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < ZOOM_PULSE_START_LEVEL) {
+      // Reset pulse scales if below threshold
+      setBaseVideoPulseScale(1.0)
+      setClonePulseScales(new Map())
+      // Clear all pulse timers
+      pulseTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      pulseTimersRef.current.clear()
+      return
+    }
+    
+    // Calculate level progress for frequency scaling (6-10 maps to 0-1)
+    const levelProgress = (chaosLevel - ZOOM_PULSE_START_LEVEL) / (MAX_CHAOS_LEVEL - ZOOM_PULSE_START_LEVEL)
+    
+    // Calculate pulse interval - faster at higher chaos levels
+    // At level 6: 300-800ms, at level 10: 200-400ms
+    const minInterval = PULSE_MIN_INTERVAL_MAX_CHAOS + (PULSE_MIN_INTERVAL - PULSE_MIN_INTERVAL_MAX_CHAOS) * (1 - levelProgress)
+    const maxInterval = (PULSE_MAX_INTERVAL - PULSE_MIN_INTERVAL_MAX_CHAOS) * (1 - levelProgress) + PULSE_MIN_INTERVAL_MAX_CHAOS
+    const intervalRange = maxInterval - minInterval
+    
+    /**
+     * Creates a pulse animation for a single element.
+     * Scales from 1.0 → 1.1 → 1.0 with easing.
+     */
+    const createPulse = (elementId: string, setScale: (scale: number) => void) => {
+      // Random interval for this pulse (within range)
+      const interval = minInterval + Math.random() * intervalRange
+      
+      // Pulse duration is half the interval (up then down)
+      const pulseDuration = interval / 2
+      
+      // Start pulse up (1.0 → 1.1)
+      const startTime = Date.now()
+      const animateUp = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / pulseDuration, 1)
+        // Ease-out cubic for smooth animation
+        const eased = 1 - Math.pow(1 - progress, 3)
+        const scale = PULSE_SCALE_MIN + (PULSE_SCALE_MAX - PULSE_SCALE_MIN) * eased
+        setScale(scale)
+        
+        if (progress < 1) {
+          requestAnimationFrame(animateUp)
+        } else {
+          // Start pulse down (1.1 → 1.0)
+          const downStartTime = Date.now()
+          const animateDown = () => {
+            const elapsed = Date.now() - downStartTime
+            const progress = Math.min(elapsed / pulseDuration, 1)
+            // Ease-in cubic for smooth animation
+            const eased = Math.pow(progress, 3)
+            const scale = PULSE_SCALE_MAX - (PULSE_SCALE_MAX - PULSE_SCALE_MIN) * eased
+            setScale(scale)
+            
+            if (progress < 1) {
+              requestAnimationFrame(animateDown)
+            } else {
+              // Schedule next pulse
+              const timerId = window.setTimeout(() => {
+                createPulse(elementId, setScale)
+              }, interval)
+              pulseTimersRef.current.set(elementId, timerId)
+            }
+          }
+          requestAnimationFrame(animateDown)
+        }
+      }
+      requestAnimationFrame(animateUp)
+    }
+    
+    // Start pulse for base video
+    if (!pulseTimersRef.current.has('base')) {
+      createPulse('base', setBaseVideoPulseScale)
+    }
+    
+    // Start pulses for all clones (independently)
+    videoClones.forEach((clone) => {
+      if (!pulseTimersRef.current.has(clone.id)) {
+        createPulse(clone.id, (scale) => {
+          setClonePulseScales((prev) => {
+            const newMap = new Map(prev)
+            newMap.set(clone.id, scale)
+            return newMap
+          })
+        })
+      }
+    })
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      pulseTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      pulseTimersRef.current.clear()
+    }
+  }, [chaosStarted, chaosLevel, videoClones])
+  
+  /**
    * Removes a sound from the active sounds tracking array.
    */
   const removeFromActiveSounds = useCallback((howl: Howl) => {
@@ -764,34 +882,40 @@ function App() {
             muted
             playsInline
             onCanPlay={() => handleVideoCanPlay('base')}
+            style={{
+              transform: `scale(${baseVideoPulseScale})`,
+            }}
             data-testid="chaos-video"
           />
           
           {/* Video clones */}
-          {videoClones.map((clone) => (
-            <video
-              key={clone.id}
-              ref={(el) => {
-                if (el) videoRefs.current.set(clone.id, el)
-                else videoRefs.current.delete(clone.id)
-              }}
-              className="video-player video-clone"
-              src={VIDEO_POOL[currentVideoIndex]}
-              autoPlay
-              loop
-              muted
-              playsInline
-              onCanPlay={() => handleVideoCanPlay(clone.id)}
-              style={{
-                position: 'absolute',
-                left: `${clone.x}%`,
-                top: `${clone.y}%`,
-                transform: `translate(-50%, -50%) rotate(${clone.rotation}deg) scale(${clone.scale})`,
-                transformOrigin: 'center center',
-              }}
-              data-testid={`video-clone-${clone.id}`}
-            />
-          ))}
+          {videoClones.map((clone) => {
+            const pulseScale = clonePulseScales.get(clone.id) ?? 1.0
+            return (
+              <video
+                key={clone.id}
+                ref={(el) => {
+                  if (el) videoRefs.current.set(clone.id, el)
+                  else videoRefs.current.delete(clone.id)
+                }}
+                className="video-player video-clone"
+                src={VIDEO_POOL[currentVideoIndex]}
+                autoPlay
+                loop
+                muted
+                playsInline
+                onCanPlay={() => handleVideoCanPlay(clone.id)}
+                style={{
+                  position: 'absolute',
+                  left: `${clone.x}%`,
+                  top: `${clone.y}%`,
+                  transform: `translate(-50%, -50%) rotate(${clone.rotation}deg) scale(${clone.scale * pulseScale})`,
+                  transformOrigin: 'center center',
+                }}
+                data-testid={`video-clone-${clone.id}`}
+              />
+            )
+          })}
         </div>
         
         {/* Happy Birthday text appears at max chaos level */}

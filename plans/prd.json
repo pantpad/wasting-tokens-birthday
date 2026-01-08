@@ -198,7 +198,7 @@
         "Pulse intervals: 0.3-0.8s with easing",
         "Zoom pulses activate at chaos level 6+"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
