@@ -246,6 +246,9 @@ function App() {
   const touchStartY = useRef<number | null>(null);
   const touchStartX = useRef<number | null>(null);
 
+  // Ref for chaos container to attach non-passive event listeners
+  const chaosContainerRef = useRef<HTMLDivElement | null>(null);
+
   // Track active sounds for limiting simultaneous playback
   const activeSoundsRef = useRef<ActiveSound[]>([]);
 
@@ -2255,11 +2258,25 @@ function App() {
   );
 
   /**
-   * Handle touch move - prevent default to disable scrolling and play chaos sounds
-   * Throttled to prevent audio overload on mobile browsers
+   * Native touch start handler (for non-passive listener)
    */
-  const handleTouchMove = useCallback(
-    (e: React.TouchEvent) => {
+  const handleTouchStartNative = useCallback(
+    (e: TouchEvent) => {
+      if (!chaosStarted) return;
+      const touch = e.touches[0];
+      if (touch) {
+        touchStartY.current = touch.clientY;
+        touchStartX.current = touch.clientX;
+      }
+    },
+    [chaosStarted]
+  );
+
+  /**
+   * Native touch move handler (for non-passive listener)
+   */
+  const handleTouchMoveNative = useCallback(
+    (e: TouchEvent) => {
       // Only prevent default if we're in chaos mode and have started tracking
       if (chaosStarted && touchStartY.current !== null) {
         // Prevent default scroll behavior
@@ -2272,10 +2289,10 @@ function App() {
   );
 
   /**
-   * Handle touch end - determine swipe direction and navigate
+   * Native touch end handler (for non-passive listener)
    */
-  const handleTouchEnd = useCallback(
-    (e: React.TouchEvent) => {
+  const handleTouchEndNative = useCallback(
+    (e: TouchEvent) => {
       if (!chaosStarted || touchStartY.current === null) {
         // Reset touch tracking
         touchStartY.current = null;
@@ -2317,6 +2334,56 @@ function App() {
   );
 
   /**
+   * Attach non-passive touch event listeners directly to DOM element
+   * This prevents the "Unable to preventDefault inside passive event listener" error
+   */
+  useEffect(() => {
+    const container = chaosContainerRef.current;
+    if (!container || !chaosStarted) return;
+
+    // Attach listeners with { passive: false } to allow preventDefault
+    container.addEventListener("touchstart", handleTouchStartNative, {
+      passive: false,
+    });
+    container.addEventListener("touchmove", handleTouchMoveNative, {
+      passive: false,
+    });
+    container.addEventListener("touchend", handleTouchEndNative, {
+      passive: false,
+    });
+
+    return () => {
+      // Cleanup listeners
+      container.removeEventListener("touchstart", handleTouchStartNative);
+      container.removeEventListener("touchmove", handleTouchMoveNative);
+      container.removeEventListener("touchend", handleTouchEndNative);
+    };
+  }, [
+    chaosStarted,
+    handleTouchStartNative,
+    handleTouchMoveNative,
+    handleTouchEndNative,
+  ]);
+
+  /**
+   * Handle touch move - React synthetic event handler (fallback)
+   * Note: Native listeners are attached in useEffect for non-passive behavior
+   */
+  const handleTouchMove = useCallback((_e: React.TouchEvent) => {
+    // This is kept for compatibility but native listeners handle preventDefault
+    // Native listeners are attached in useEffect with { passive: false }
+  }, []);
+
+  /**
+   * Handle touch end - React synthetic event handler (fallback)
+   * Note: Native listeners are attached in useEffect for non-passive behavior
+   */
+  const handleTouchEnd = useCallback((_e: React.TouchEvent) => {
+    // This is kept for compatibility but native listeners handle swipe detection
+    // Native listeners are attached in useEffect with { passive: false }
+  }, []);
+
+  /**
    * Handle click/tap on chaos container - play random sound
    */
   const handleChaosClick = useCallback(() => {
@@ -2340,12 +2407,20 @@ function App() {
         onClick={handleEntryTap}
         onTouchStart={(e) => {
           // Prevent default to avoid double-tap zoom and other mobile behaviors
-          e.preventDefault();
+          try {
+            e.preventDefault();
+          } catch (err) {
+            // Ignore errors if preventDefault fails
+          }
           handleEntryTap();
         }}
         onTouchEnd={(e) => {
           // Also handle touchEnd as fallback
-          e.preventDefault();
+          try {
+            e.preventDefault();
+          } catch (err) {
+            // Ignore errors if preventDefault fails
+          }
           handleEntryTap();
         }}
         role="button"
@@ -2364,6 +2439,7 @@ function App() {
   // Chaos mode with TikTok-style vertical video feed
   return (
     <div
+      ref={chaosContainerRef}
       className="chaos-container"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}

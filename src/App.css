@@ -75,8 +75,8 @@
   overflow: hidden;
   position: relative;
   /* Prevent default scrolling - we'll handle swipes manually */
-  /* Use pan-y to allow vertical swipes while preventing scroll */
-  touch-action: pan-y;
+  /* Use none to prevent all default touch behaviors (prevents passive listener error) */
+  touch-action: none;
   /* Prevent text selection */
   user-select: none;
   -webkit-user-select: none;
