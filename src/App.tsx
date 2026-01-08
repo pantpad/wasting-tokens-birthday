@@ -51,6 +51,19 @@ const PLAYBACK_SPEED_START_LEVEL = 7 // Chaos level when playback speed changes 
 const PLAYBACK_SPEED_CHANGE_INTERVAL = 2000 // ms - how often to change speeds
 const PLAYBACK_SPEED_OPTIONS = [0.25, 0.5, 1.0, 2.0, 3.0] // Available playback speeds
 
+// Glitch and datamosh constants
+const GLITCH_START_LEVEL = 7 // Chaos level when glitch effects begin
+const CONTRAST_SPIKE_CHANCE = 0.03 // 3% chance per frame for contrast spike
+const CONTRAST_SPIKE_MIN = 100 // Normal contrast
+const CONTRAST_SPIKE_MAX = 200 // Maximum contrast spike (200% = double contrast)
+const BRIGHTNESS_SPIKE_CHANCE = 0.03 // 3% chance per frame for brightness spike
+const BRIGHTNESS_SPIKE_MIN = 100 // Normal brightness
+const BRIGHTNESS_SPIKE_MAX = 150 // Maximum brightness spike (150% = 50% brighter)
+const CHROMATIC_ABERRATION_MAX = 5 // Maximum RGB split in pixels
+const CORRUPTION_RECTANGLE_CHANCE = 0.01 // 1% chance per frame to spawn corruption rectangle
+const MAX_CORRUPTION_RECTANGLES = 5 // Maximum corruption rectangles on screen
+const CORRUPTION_RECTANGLE_DURATION = 300 // ms - how long corruption rectangles last
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -147,6 +160,21 @@ function App() {
   // Video playback speed state
   const [baseVideoPlaybackSpeed, setBaseVideoPlaybackSpeed] = useState(1.0) // Base video playback speed
   const playbackSpeedTimerRef = useRef<number | null>(null) // Timer for changing playback speeds
+  
+  // Glitch and datamosh state
+  const [glitchContrast, setGlitchContrast] = useState(100) // Contrast percentage (100% = normal)
+  const [glitchBrightness, setGlitchBrightness] = useState(100) // Brightness percentage (100% = normal)
+  const [chromaticAberration, setChromaticAberration] = useState(0) // RGB split offset in pixels
+  const [corruptionRectangles, setCorruptionRectangles] = useState<Array<{
+    id: string
+    x: number
+    y: number
+    width: number
+    height: number
+    opacity: number
+  }>>([])
+  const glitchAnimationFrameRef = useRef<number | null>(null)
+  const corruptionTimersRef = useRef<Map<string, number>>(new Map()) // Track corruption rectangle timers
   
   /**
    * Time-based escalation system.
@@ -577,6 +605,123 @@ function App() {
   }, [chaosStarted, chaosLevel, videoClones])
   
   /**
+   * Glitch and datamosh overlay effects.
+   * Activates at chaos level 7+ with contrast/brightness spikes, chromatic aberration,
+   * scan lines, and random corruption rectangles.
+   */
+  useEffect(() => {
+    // Only apply glitch effects if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < GLITCH_START_LEVEL) {
+      // Reset glitch effects if below threshold
+      setGlitchContrast(100)
+      setGlitchBrightness(100)
+      setChromaticAberration(0)
+      setCorruptionRectangles([])
+      if (glitchAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(glitchAnimationFrameRef.current)
+        glitchAnimationFrameRef.current = null
+      }
+      // Clear all corruption timers
+      corruptionTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      corruptionTimersRef.current.clear()
+      return
+    }
+    
+    // Calculate level progress for intensity scaling (7-10 maps to 0-1)
+    const levelProgress = (chaosLevel - GLITCH_START_LEVEL) / (MAX_CHAOS_LEVEL - GLITCH_START_LEVEL)
+    
+    // Animation loop for continuous glitch effects
+    const animateGlitch = () => {
+      // Random contrast spikes
+      if (Math.random() < CONTRAST_SPIKE_CHANCE * (1 + levelProgress)) {
+        // Spike contrast to high value
+        const spikeIntensity = CONTRAST_SPIKE_MIN + (CONTRAST_SPIKE_MAX - CONTRAST_SPIKE_MIN) * (0.5 + Math.random() * 0.5)
+        setGlitchContrast(spikeIntensity)
+        // Return to normal after a short time
+        setTimeout(() => {
+          setGlitchContrast(CONTRAST_SPIKE_MIN)
+        }, 100)
+      } else {
+        // Gradually return to normal contrast if not spiking
+        setGlitchContrast((prev) => {
+          if (prev > CONTRAST_SPIKE_MIN) {
+            return Math.max(CONTRAST_SPIKE_MIN, prev - 5) // Decay back to 100%
+          }
+          return CONTRAST_SPIKE_MIN
+        })
+      }
+      
+      // Random brightness spikes
+      if (Math.random() < BRIGHTNESS_SPIKE_CHANCE * (1 + levelProgress)) {
+        // Spike brightness to high value
+        const spikeIntensity = BRIGHTNESS_SPIKE_MIN + (BRIGHTNESS_SPIKE_MAX - BRIGHTNESS_SPIKE_MIN) * (0.5 + Math.random() * 0.5)
+        setGlitchBrightness(spikeIntensity)
+        // Return to normal after a short time
+        setTimeout(() => {
+          setGlitchBrightness(BRIGHTNESS_SPIKE_MIN)
+        }, 100)
+      } else {
+        // Gradually return to normal brightness if not spiking
+        setGlitchBrightness((prev) => {
+          if (prev > BRIGHTNESS_SPIKE_MIN) {
+            return Math.max(BRIGHTNESS_SPIKE_MIN, prev - 5) // Decay back to 100%
+          }
+          return BRIGHTNESS_SPIKE_MIN
+        })
+      }
+      
+      // Chromatic aberration (RGB split) - continuous effect that intensifies
+      const aberrationIntensity = CHROMATIC_ABERRATION_MAX * levelProgress * (0.5 + Math.random() * 0.5)
+      setChromaticAberration(aberrationIntensity)
+      
+      // Random corruption rectangles
+      setCorruptionRectangles((prev) => {
+        if (prev.length < MAX_CORRUPTION_RECTANGLES && 
+            Math.random() < CORRUPTION_RECTANGLE_CHANCE * (1 + levelProgress)) {
+          const newRect = {
+            id: `corruption-${Date.now()}-${Math.random()}`,
+            x: Math.random() * 80 + 10, // 10-90% of screen width
+            y: Math.random() * 80 + 10, // 10-90% of screen height
+            width: 50 + Math.random() * 150, // 50-200px width
+            height: 50 + Math.random() * 150, // 50-200px height
+            opacity: 0.8 + Math.random() * 0.2, // 0.8-1.0 opacity
+          }
+          
+          // Remove corruption rectangle after duration
+          const timerId = window.setTimeout(() => {
+            setCorruptionRectangles((current) => current.filter((rect) => rect.id !== newRect.id))
+            corruptionTimersRef.current.delete(newRect.id)
+          }, CORRUPTION_RECTANGLE_DURATION)
+          corruptionTimersRef.current.set(newRect.id, timerId)
+          
+          return [...prev, newRect]
+        }
+        return prev
+      })
+      
+      // Continue animation loop
+      glitchAnimationFrameRef.current = requestAnimationFrame(animateGlitch)
+    }
+    
+    // Start animation loop
+    glitchAnimationFrameRef.current = requestAnimationFrame(animateGlitch)
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (glitchAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(glitchAnimationFrameRef.current)
+        glitchAnimationFrameRef.current = null
+      }
+      corruptionTimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      corruptionTimersRef.current.clear()
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
    * Zoom pulse effects - elements "breathe" by scaling from 1.0 to 1.1 and back.
    * Activates at chaos level 6+ with frequency increasing with chaos level.
    * Individual elements can pulse independently.
@@ -955,10 +1100,34 @@ function App() {
               hue-rotate(${hueRotation}deg)
               saturate(${saturation}%)
               ${isInverted ? 'invert(1)' : 'invert(0)'}
+              contrast(${glitchContrast}%)
+              brightness(${glitchBrightness}%)
             `.trim(),
           }}
           data-testid="video-feed"
         >
+          {/* Chromatic aberration effect using multiple layers with RGB split */}
+          {chaosLevel >= GLITCH_START_LEVEL && chromaticAberration > 0 && (
+            <div 
+              className="chromatic-aberration-overlay"
+              style={{
+                background: `
+                  linear-gradient(to right, 
+                    rgba(255, 0, 0, 0.3) ${chromaticAberration}px,
+                    transparent ${chromaticAberration}px,
+                    transparent calc(100% - ${chromaticAberration}px),
+                    rgba(0, 0, 255, 0.3) calc(100% - ${chromaticAberration}px)
+                  )
+                `,
+                mixBlendMode: 'screen',
+              }}
+            />
+          )}
+          
+          {/* Scan lines overlay */}
+          {chaosLevel >= GLITCH_START_LEVEL && (
+            <div className="scan-lines-overlay" />
+          )}
           {/* Base video (always rendered) */}
           <video
             ref={(el) => {
@@ -1035,6 +1204,23 @@ function App() {
             )
           })}
         </div>
+        
+        {/* Corruption rectangles overlay */}
+        {chaosLevel >= GLITCH_START_LEVEL && corruptionRectangles.map((rect) => (
+          <div
+            key={rect.id}
+            className="corruption-rectangle"
+            style={{
+              position: 'absolute',
+              left: `${rect.x}%`,
+              top: `${rect.y}%`,
+              width: `${rect.width}px`,
+              height: `${rect.height}px`,
+              opacity: rect.opacity,
+            }}
+            data-testid={`corruption-rect-${rect.id}`}
+          />
+        ))}
         
         {/* Happy Birthday text appears at max chaos level */}
         {isMaxChaos && (

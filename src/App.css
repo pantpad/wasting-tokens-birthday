@@ -164,3 +164,70 @@
   /* Make it stand out */
   padding: 1rem 2rem;
 }
+
+/* Glitch and datamosh overlay effects */
+.chromatic-aberration-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 10;
+}
+
+/* Scan lines overlay - horizontal lines for datamosh effect */
+.scan-lines-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 11;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.1) 2px,
+    rgba(0, 0, 0, 0.1) 4px
+  );
+  /* Subtle animation for scan line movement */
+  animation: scan-lines 0.1s linear infinite;
+}
+
+@keyframes scan-lines {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(4px);
+  }
+}
+
+/* Corruption rectangles - random glitch rectangles */
+.corruption-rectangle {
+  position: absolute;
+  background: rgba(255, 0, 0, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  pointer-events: none;
+  z-index: 12;
+  /* Glitch animation */
+  animation: corruption-glitch 0.05s linear infinite;
+  transform: translate(-50%, -50%);
+}
+
+@keyframes corruption-glitch {
+  0%, 100% {
+    transform: translate(-50%, -50%) translateX(0);
+  }
+  25% {
+    transform: translate(-50%, -50%) translateX(2px);
+  }
+  50% {
+    transform: translate(-50%, -50%) translateX(-2px);
+  }
+  75% {
+    transform: translate(-50%, -50%) translateX(1px);
+  }
+}

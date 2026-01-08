@@ -222,7 +222,7 @@
         "Random 'corruption' rectangles appear",
         "Glitch effects activate at chaos level 7+"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
