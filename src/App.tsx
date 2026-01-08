@@ -70,6 +70,18 @@ const FAKE_UI_SPAWN_CHANCE = 0.02 // 2% chance per frame to spawn a fake UI elem
 const MAX_FAKE_UI_ELEMENTS = 5 // Maximum fake UI elements on screen simultaneously
 const FAKE_UI_DURATION = 3000 // ms - how long fake UI elements last
 
+// Floating meme text constants
+const MEME_TEXT_START_LEVEL = 9 // Chaos level when meme text begins spawning
+const MEME_TEXT_PHRASES = ['SKIBIDI', 'OHIO', 'SIGMA', 'RIZZ', 'GYATT'] // Meme phrases to spawn
+const MAX_FLOATING_TEXTS = 20 // Maximum floating texts on screen simultaneously
+const MEME_TEXT_MIN_SPAWN_INTERVAL = 500 // ms - minimum spawn interval at max chaos
+const MEME_TEXT_MAX_SPAWN_INTERVAL = 2000 // ms - maximum spawn interval at level 9
+const MEME_TEXT_MIN_SPAWN_INTERVAL_MAX_CHAOS = 500 // ms - minimum spawn interval at max chaos
+const MEME_TEXT_SPEED_MIN = 0.05 // % per frame - minimum movement speed
+const MEME_TEXT_SPEED_MAX = 0.3 // % per frame - maximum movement speed
+const MEME_TEXT_MIN_SIZE = 1.5 // rem - minimum font size
+const MEME_TEXT_MAX_SIZE = 4.0 // rem - maximum font size
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -117,6 +129,19 @@ interface FakeUIElement {
   type: FakeUIType
   x: number // Position X (percentage)
   y: number // Position Y (percentage)
+}
+
+// Type for floating meme text
+interface FloatingText {
+  id: string
+  text: string
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
+  rotation: number // Rotation in degrees
+  size: number // Font size in rem
+  color: string // Text color (hex)
+  vx: number // Velocity X (percentage per frame)
+  vy: number // Velocity Y (percentage per frame)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -196,6 +221,12 @@ function App() {
   const [fakeUIElements, setFakeUIElements] = useState<FakeUIElement[]>([])
   const fakeUIAnimationFrameRef = useRef<number | null>(null)
   const fakeUITimersRef = useRef<Map<string, number>>(new Map()) // Track fake UI element timers
+  
+  // Floating meme text state
+  const [floatingTexts, setFloatingTexts] = useState<FloatingText[]>([])
+  const memeTextAnimationFrameRef = useRef<number | null>(null)
+  const memeTextSpawnTimerRef = useRef<number | null>(null)
+  const memeTextCounterRef = useRef<number>(0) // Counter for unique IDs
   
   /**
    * Time-based escalation system.
@@ -818,6 +849,178 @@ function App() {
   }, [chaosStarted, chaosLevel])
   
   /**
+   * Floating meme text system.
+   * Spawns meme phrases (SKIBIDI, OHIO, SIGMA, RIZZ, GYATT) that float across screen.
+   * Activates at chaos level 9+ with random trajectories, sizes, rotations, and colors.
+   * Text spawns every 0.5-2s at max chaos, capped at 20 texts for performance.
+   */
+  useEffect(() => {
+    // Only spawn floating texts if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < MEME_TEXT_START_LEVEL) {
+      // Clear all floating texts if below threshold
+      setFloatingTexts([])
+      if (memeTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(memeTextAnimationFrameRef.current)
+        memeTextAnimationFrameRef.current = null
+      }
+      if (memeTextSpawnTimerRef.current !== null) {
+        clearTimeout(memeTextSpawnTimerRef.current)
+        memeTextSpawnTimerRef.current = null
+      }
+      return
+    }
+    
+    // Calculate level progress for spawn interval scaling (9-10 maps to 0-1)
+    const levelProgress = (chaosLevel - MEME_TEXT_START_LEVEL) / (MAX_CHAOS_LEVEL - MEME_TEXT_START_LEVEL)
+    
+    // Calculate spawn interval - faster at higher chaos levels
+    // At level 9: 0.5-2s, at level 10: 0.5-1s
+    const minInterval = MEME_TEXT_MIN_SPAWN_INTERVAL_MAX_CHAOS + (MEME_TEXT_MIN_SPAWN_INTERVAL - MEME_TEXT_MIN_SPAWN_INTERVAL_MAX_CHAOS) * (1 - levelProgress)
+    const maxInterval = MEME_TEXT_MAX_SPAWN_INTERVAL - (MEME_TEXT_MAX_SPAWN_INTERVAL - MEME_TEXT_MIN_SPAWN_INTERVAL_MAX_CHAOS) * levelProgress
+    
+    /**
+     * Spawns a new floating meme text.
+     */
+    const spawnMemeText = () => {
+      setFloatingTexts((prev) => {
+        // Don't spawn if at max limit
+        if (prev.length >= MAX_FLOATING_TEXTS) {
+          return prev
+        }
+        
+        // Random meme phrase
+        const randomPhrase = MEME_TEXT_PHRASES[Math.floor(Math.random() * MEME_TEXT_PHRASES.length)]
+        
+        // Random starting position (spawn from edges of screen)
+        const spawnEdge = Math.floor(Math.random() * 4) // 0=top, 1=right, 2=bottom, 3=left
+        let startX = 0
+        let startY = 0
+        
+        if (spawnEdge === 0) {
+          // Top edge
+          startX = Math.random() * 100
+          startY = -10
+        } else if (spawnEdge === 1) {
+          // Right edge
+          startX = 110
+          startY = Math.random() * 100
+        } else if (spawnEdge === 2) {
+          // Bottom edge
+          startX = Math.random() * 100
+          startY = 110
+        } else {
+          // Left edge
+          startX = -10
+          startY = Math.random() * 100
+        }
+        
+        // Random target position (opposite side of screen)
+        const targetX = Math.random() * 100
+        const targetY = Math.random() * 100
+        
+        // Calculate velocity towards target
+        const dx = targetX - startX
+        const dy = targetY - startY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        const speed = MEME_TEXT_SPEED_MIN + Math.random() * (MEME_TEXT_SPEED_MAX - MEME_TEXT_SPEED_MIN)
+        const vx = (dx / distance) * speed
+        const vy = (dy / distance) * speed
+        
+        // Random properties
+        const rotation = (Math.random() - 0.5) * 60 // -30 to 30 degrees
+        const size = MEME_TEXT_MIN_SIZE + Math.random() * (MEME_TEXT_MAX_SIZE - MEME_TEXT_MIN_SIZE)
+        
+        // Random color (bright colors for visibility)
+        const colors = [
+          '#FF0000', // Red
+          '#00FF00', // Green
+          '#0000FF', // Blue
+          '#FFFF00', // Yellow
+          '#FF00FF', // Magenta
+          '#00FFFF', // Cyan
+          '#FFFFFF', // White
+        ]
+        const color = colors[Math.floor(Math.random() * colors.length)]
+        
+        // Generate unique ID using counter
+        memeTextCounterRef.current += 1
+        const newText: FloatingText = {
+          id: `meme-text-${Date.now()}-${memeTextCounterRef.current}-${Math.random()}`,
+          text: randomPhrase,
+          x: startX,
+          y: startY,
+          rotation,
+          size,
+          color,
+          vx,
+          vy,
+        }
+        
+        return [...prev, newText]
+      })
+    }
+    
+    /**
+     * Animation loop for moving floating texts across screen.
+     */
+    const animateFloatingTexts = () => {
+      setFloatingTexts((prev) => {
+        return prev
+          .map((text) => {
+            // Update position
+            let newX = text.x + text.vx
+            let newY = text.y + text.vy
+            
+            // Remove text if it goes far off-screen
+            if (newX < -20 || newX > 120 || newY < -20 || newY > 120) {
+              return null // Mark for removal
+            }
+            
+            return {
+              ...text,
+              x: newX,
+              y: newY,
+            }
+          })
+          .filter((text): text is FloatingText => text !== null) // Remove nulls
+      })
+      
+      // Continue animation loop
+      memeTextAnimationFrameRef.current = requestAnimationFrame(animateFloatingTexts)
+    }
+    
+    // Start animation loop
+    memeTextAnimationFrameRef.current = requestAnimationFrame(animateFloatingTexts)
+    
+    /**
+     * Spawns meme texts periodically.
+     */
+    const scheduleNextSpawn = () => {
+      const interval = minInterval + Math.random() * (maxInterval - minInterval)
+      memeTextSpawnTimerRef.current = window.setTimeout(() => {
+        spawnMemeText()
+        scheduleNextSpawn()
+      }, interval)
+    }
+    
+    // Initial spawn
+    spawnMemeText()
+    scheduleNextSpawn()
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (memeTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(memeTextAnimationFrameRef.current)
+        memeTextAnimationFrameRef.current = null
+      }
+      if (memeTextSpawnTimerRef.current !== null) {
+        clearTimeout(memeTextSpawnTimerRef.current)
+        memeTextSpawnTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
    * Zoom pulse effects - elements "breathe" by scaling from 1.0 to 1.1 and back.
    * Activates at chaos level 6+ with frequency increasing with chaos level.
    * Individual elements can pulse independently.
@@ -1396,6 +1599,25 @@ function App() {
           }
           return null
         })}
+        
+        {/* Floating meme text - spawns at chaos level 9+ */}
+        {chaosLevel >= MEME_TEXT_START_LEVEL && floatingTexts.map((text) => (
+          <div
+            key={text.id}
+            className="floating-meme-text"
+            style={{
+              position: 'absolute',
+              left: `${text.x}%`,
+              top: `${text.y}%`,
+              transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
+              fontSize: `${text.size}rem`,
+              color: text.color,
+            }}
+            data-testid={`floating-text-${text.id}`}
+          >
+            {text.text}
+          </div>
+        ))}
         
         {/* Happy Birthday text appears at max chaos level */}
         {isMaxChaos && (

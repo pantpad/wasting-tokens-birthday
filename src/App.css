@@ -409,3 +409,27 @@
 .fake-warning-button:hover {
   background: #ffb300;
 }
+
+/* Floating meme text - spawns at chaos level 9+ */
+.floating-meme-text {
+  position: absolute;
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 150;
+  /* Text shadow for visibility over video */
+  text-shadow: 
+    2px 2px 0 #000000,
+    -2px -2px 0 #000000,
+    2px -2px 0 #000000,
+    -2px 2px 0 #000000,
+    0 0 10px rgba(0, 0, 0, 0.8);
+  /* GPU acceleration for smooth movement */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Smooth transitions */
+  transition: transform 0.1s linear;
+  white-space: nowrap;
+}

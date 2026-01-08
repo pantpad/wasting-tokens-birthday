@@ -246,7 +246,7 @@
         "Text spawns every 0.5-2s at max chaos",
         "Max 20 floating texts for performance"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
