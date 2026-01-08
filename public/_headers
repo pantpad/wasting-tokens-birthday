@@ -1,0 +1,28 @@
+# Cloudflare Pages Headers Configuration
+# This file sets HTTP headers for static assets
+
+# Cache media files (videos, audios, images) for 1 year with immutable cache
+/videos/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/audios/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/images/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cache static assets (JS, CSS) for 1 year with immutable cache
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Cache other static files (favicon, etc.) for 1 week
+/*.svg
+  Cache-Control: public, max-age=604800
+
+# HTML files should not be cached (always fetch fresh)
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Default: Cache for 1 hour
+/*
+  Cache-Control: public, max-age=3600

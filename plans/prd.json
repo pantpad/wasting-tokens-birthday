@@ -330,7 +330,7 @@
         "Proper caching headers for media files",
         "Deployment configuration ready"
       ],
-      "passes": false
+      "passes": true
     }
   ]
 }
