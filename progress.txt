@@ -150,3 +150,30 @@
 - Good next priorities: "Audio chaos system triggers sounds" for core chaos functionality
 - The chaos container now has touch event handlers attached
 - Consider mouse wheel support for desktop users in the future
+
+## 2026-01-08 20:16 UTC - Feature: Audio Chaos System Triggers Sounds on Every Interaction
+
+### Implemented
+- Created AUDIO_POOL constant with all 9 audio files from /audios folder
+- Added playRandomSound() function that creates Howl instances and plays random sounds
+- Audio plays on click/tap in chaos container
+- Audio plays on touch move events
+- Audio plays on successful swipe navigation
+- Audio plays on pointer move (desktop mouse interactions)
+- Sound instances auto-cleanup after playback ends via 'end' event handler
+- Sounds only play after chaos mode has started (not on entry screen)
+
+### Files Changed
+- src/App.tsx - Added AUDIO_POOL, playRandomSound function, event handlers for click/pointerMove
+- src/App.test.tsx - Added 7 new tests for audio chaos system (28 total tests), updated Howl mock
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (28 tests)
+
+### Notes for Next Agent
+- Audio chaos system is now functional and plays random sounds on every interaction
+- Volume is set to 0.5 to prevent immediate audio overload
+- Next high-priority feature should be "Audio system enforces maximum simultaneous sounds" (max 8 sounds)
+- The escalation system would also benefit from audio integration
+- Consider adding throttling to prevent too many sounds on rapid interactions

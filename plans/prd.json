@@ -85,7 +85,7 @@
         "Sounds play on any pointer event",
         "Audio files auto-detected from /audios folder"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

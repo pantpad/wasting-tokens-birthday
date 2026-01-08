@@ -1,9 +1,25 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import App from './App'
 
+// Track mock Howl instances and play calls
+const mockPlay = vi.fn()
+const mockUnload = vi.fn()
+const mockOn = vi.fn()
+const mockHowlInstances: { src: string[] }[] = []
+
 // Mock Howler to avoid audio context issues in tests
 vi.mock('howler', () => ({
+  Howl: vi.fn().mockImplementation((options: { src: string[] }) => {
+    const instance = { 
+      src: options.src, 
+      play: mockPlay, 
+      unload: mockUnload,
+      on: mockOn,
+    }
+    mockHowlInstances.push(instance)
+    return instance
+  }),
   Howler: {
     ctx: { state: 'suspended', resume: vi.fn() },
     mute: vi.fn(),
@@ -11,6 +27,18 @@ vi.mock('howler', () => ({
 }))
 
 describe('App', () => {
+  beforeEach(() => {
+    // Clear mock state before each test
+    mockPlay.mockClear()
+    mockUnload.mockClear()
+    mockOn.mockClear()
+    mockHowlInstances.length = 0
+  })
+
+  afterEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('Entry Screen', () => {
     it('renders the entry screen with TAP HERE text', () => {
       render(<App />)
@@ -292,6 +320,139 @@ describe('App', () => {
       
       // If we get here without error, the handler works
       expect(chaosContainer).toBeInTheDocument()
+    })
+  })
+
+  describe('Audio Chaos System', () => {
+    it('does not play sounds before chaos starts', () => {
+      render(<App />)
+      
+      // Entry screen is showing, no sounds should play yet
+      expect(mockPlay).not.toHaveBeenCalled()
+    })
+
+    it('plays sound on click in chaos container', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockPlay.mockClear() // Clear any sounds from entry transition
+      
+      // Click in chaos container
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.click(chaosContainer)
+      
+      // Sound should have been played
+      expect(mockPlay).toHaveBeenCalled()
+    })
+
+    it('plays sound on touch move in chaos container', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockPlay.mockClear()
+      
+      // Touch move in chaos container
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.touchMove(chaosContainer, {
+        touches: [{ clientX: 100, clientY: 150 }],
+        preventDefault: vi.fn(),
+      })
+      
+      // Sound should have been played
+      expect(mockPlay).toHaveBeenCalled()
+    })
+
+    it('plays sound on successful swipe', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockPlay.mockClear()
+      
+      // Simulate swipe
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.touchStart(chaosContainer, {
+        touches: [{ clientX: 100, clientY: 300 }],
+      })
+      fireEvent.touchEnd(chaosContainer, {
+        changedTouches: [{ clientX: 100, clientY: 100 }], // Swipe up 200px
+      })
+      
+      // Sound should have been played on swipe
+      expect(mockPlay).toHaveBeenCalled()
+    })
+
+    it('plays sound on pointer move (desktop)', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockPlay.mockClear()
+      
+      // Pointer move in chaos container
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.pointerMove(chaosContainer, { clientX: 100, clientY: 100 })
+      
+      // Sound should have been played
+      expect(mockPlay).toHaveBeenCalled()
+    })
+
+    it('selects random sound from audio pool', () => {
+      // Mock Math.random to return specific values
+      const randomValues = [0.5, 0.2, 0.8]
+      let callIndex = 0
+      vi.spyOn(Math, 'random').mockImplementation(() => {
+        // Return 0 for the first call (video selection), then cycle through randomValues
+        if (callIndex === 0) {
+          callIndex++
+          return 0
+        }
+        const value = randomValues[(callIndex - 1) % randomValues.length]
+        callIndex++
+        return value
+      })
+      
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockPlay.mockClear()
+      
+      // Click multiple times
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.click(chaosContainer)
+      fireEvent.click(chaosContainer)
+      fireEvent.click(chaosContainer)
+      
+      // Should have created Howl instances with different audio files
+      expect(mockHowlInstances.length).toBeGreaterThan(0)
+      expect(mockPlay).toHaveBeenCalled()
+      
+      // Verify audio files are from the pool
+      mockHowlInstances.forEach((instance) => {
+        expect(instance.src[0]).toMatch(/\/audios\//)
+      })
+      
+      vi.spyOn(Math, 'random').mockRestore()
+    })
+
+    it('creates Howl instances with audio from the pool', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0 // Clear previous instances
+      
+      // Trigger sound
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.click(chaosContainer)
+      
+      // Verify Howl instances were created with audio from pool
+      expect(mockHowlInstances.length).toBe(1)
+      expect(mockHowlInstances[0].src[0]).toMatch(/\/audios\/.*\.mp3$/)
     })
   })
 })

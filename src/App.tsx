@@ -1,6 +1,19 @@
 import { useState, useCallback, useRef } from 'react'
-import { Howler } from 'howler'
+import { Howl, Howler } from 'howler'
 import './App.css'
+
+// Audio pool - available audio files in the public/audios folder
+const AUDIO_POOL = [
+  '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
+  '/audios/All Italian Brainrot Animals Sound Effect  2025.mp3',
+  '/audios/Amogus - Sound effect.mp3',
+  '/audios/Baba Booey - Sound Effect (HD).mp3',
+  '/audios/Boy what the hell boy Sound Effect.mp3',
+  '/audios/Guy Speaks Plants vs Zombies Victory Theme.mp3',
+  '/audios/Happy Birthday song.mp3',
+  '/audios/Taco Bell Bong SFX.mp3',
+  '/audios/You Stupid - Sound Effect (HD).mp3',
+]
 
 // Video pool - available videos in the public/videos folder
 const VIDEO_POOL = [
@@ -21,6 +34,32 @@ function App() {
   // Touch tracking refs for swipe detection
   const touchStartY = useRef<number | null>(null)
   const touchStartX = useRef<number | null>(null)
+  
+  /**
+   * Plays a random sound from the audio pool.
+   * Creates a new Howl instance and plays it immediately.
+   */
+  const playRandomSound = useCallback(() => {
+    // Only play sounds after chaos has started
+    if (!chaosStarted) return
+    
+    // Pick a random audio file from the pool
+    const randomIndex = Math.floor(Math.random() * AUDIO_POOL.length)
+    const audioSrc = AUDIO_POOL[randomIndex]
+    
+    // Create and play a new Howl instance
+    const sound = new Howl({
+      src: [audioSrc],
+      volume: 0.5,
+    })
+    
+    // Auto-cleanup after playback ends
+    sound.on('end', () => {
+      sound.unload()
+    })
+    
+    sound.play()
+  }, [chaosStarted])
 
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.
@@ -92,12 +131,14 @@ function App() {
   }, [])
 
   /**
-   * Handle touch move - prevent default to disable scrolling
+   * Handle touch move - prevent default to disable scrolling and play chaos sounds
    */
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     // Prevent default scroll behavior
     e.preventDefault()
-  }, [])
+    // Play sound on touch move for chaos effect
+    playRandomSound()
+  }, [playRandomSound])
 
   /**
    * Handle touch end - determine swipe direction and navigate
@@ -118,12 +159,28 @@ function App() {
         // Swiped down - go to previous video
         goToPreviousVideo()
       }
+      // Play sound on successful swipe
+      playRandomSound()
     }
 
     // Reset touch tracking
     touchStartY.current = null
     touchStartX.current = null
-  }, [goToNextVideo, goToPreviousVideo])
+  }, [goToNextVideo, goToPreviousVideo, playRandomSound])
+  
+  /**
+   * Handle click/tap on chaos container - play random sound
+   */
+  const handleChaosClick = useCallback(() => {
+    playRandomSound()
+  }, [playRandomSound])
+  
+  /**
+   * Handle pointer move (for desktop mouse interactions)
+   */
+  const handlePointerMove = useCallback(() => {
+    playRandomSound()
+  }, [playRandomSound])
 
   // Entry screen - black void waiting for first tap
   if (!chaosStarted) {
@@ -152,6 +209,8 @@ function App() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
+      onClick={handleChaosClick}
+      onPointerMove={handlePointerMove}
       data-testid="chaos-container"
     >
       <div className="chaos-active">
