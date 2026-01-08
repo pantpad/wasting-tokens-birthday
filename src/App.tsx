@@ -331,51 +331,28 @@ function App() {
   const initialBirthdaySoundRef = useRef<Howl | null>(null);
 
   /**
-   * Attempts to play Happy Birthday song immediately on component mount.
-   * If autoplay is blocked by browser, it will play on first user interaction.
+   * Creates the initial birthday song sound instance (but doesn't play it).
+   * Will be played when user taps to start chaos (mobile autoplay restriction).
    */
   useEffect(() => {
-    // Try to play the song immediately when component mounts
+    // Don't try to autoplay - mobile browsers will block it
+    // Instead, create the sound instance ready to play when user interacts
     const birthdaySongSrc = "/audios/Happy Birthday song.mp3";
 
-    // Create the sound instance immediately
+    // Create the sound instance (but don't autoplay - will fail on mobile)
     const sound = new Howl({
       src: [birthdaySongSrc],
       volume: BASE_VOLUME,
-      autoplay: true, // Try to autoplay
+      html5: false, // Use Web Audio API for better mobile support
     });
 
-    // Store reference for cleanup
+    // Store reference for later playback
     initialBirthdaySoundRef.current = sound;
-
-    // Track this sound
-    const activeSound: ActiveSound = {
-      howl: sound,
-      startTime: Date.now(),
-    };
-    activeSoundsRef.current.push(activeSound);
-
-    // Auto-cleanup after playback ends
-    sound.on("end", () => {
-      // Remove from active sounds
-      activeSoundsRef.current = activeSoundsRef.current.filter(
-        (s) => s.howl !== sound
-      );
-      sound.unload();
-      initialBirthdaySoundRef.current = null;
-    });
-
-    // Try to play immediately (will fail silently if autoplay blocked)
-    // Howler handles autoplay restrictions gracefully - returns 0 if blocked
-    sound.play();
 
     // Cleanup on unmount
     return () => {
       if (initialBirthdaySoundRef.current) {
         initialBirthdaySoundRef.current.unload();
-        activeSoundsRef.current = activeSoundsRef.current.filter(
-          (s) => s.howl !== initialBirthdaySoundRef.current
-        );
         initialBirthdaySoundRef.current = null;
       }
     };
@@ -1999,11 +1976,22 @@ function App() {
   /**
    * Plays a specific sound file.
    * Enforces maximum simultaneous sounds with ducking and fadeout.
+   * Robust mobile audio playback with proper context handling.
    */
   const playSound = useCallback(
-    (audioSrc: string, requireChaosStarted: boolean = true) => {
+    async (audioSrc: string, requireChaosStarted: boolean = true) => {
       // Only play sounds after chaos has started (unless explicitly allowed)
       if (requireChaosStarted && !chaosStarted) return;
+
+      // Ensure audio context is unlocked first (CRITICAL for mobile)
+      if (Howler.ctx && Howler.ctx.state === "suspended") {
+        try {
+          await Howler.ctx.resume();
+        } catch (e) {
+          console.warn("Failed to resume audio context:", e);
+          return; // Can't play without audio context
+        }
+      }
 
       // Check if we're at the maximum limit
       if (activeSoundsRef.current.length >= MAX_SIMULTANEOUS_SOUNDS) {
@@ -2020,6 +2008,7 @@ function App() {
       const sound = new Howl({
         src: [audioSrc],
         volume: initialVolume,
+        html5: false, // Use Web Audio API for better mobile support
       });
 
       // Track this sound
@@ -2040,28 +2029,45 @@ function App() {
         applyVolumeDucking();
       });
 
-      // Ensure audio context is ready before playing
-      const playSoundNow = () => {
-        // Ensure Howler context is resumed if it was suspended
-        if (Howler.ctx && Howler.ctx.state === "suspended") {
-          Howler.ctx.resume().then(() => {
-            sound.play();
-          });
-        } else {
-          sound.play();
-        }
-      };
-
-      // Load and play - Howler will load the file on first play
-      sound.once("load", () => {
-        playSoundNow();
+      // Handle load errors
+      sound.on("loaderror", (_id, error) => {
+        console.warn("Sound load error:", audioSrc, error);
+        removeFromActiveSounds(sound);
+        sound.unload();
       });
 
-      // If already loaded, play immediately
-      if (sound.state() === "loaded") {
-        playSoundNow();
-      } else {
+      // Play the sound - Howler will load it automatically
+      // Use a more reliable approach: try to play directly, handle loading internally
+      const playId = sound.play();
+
+      // If play() returns 0, it means the sound isn't loaded yet
+      // In that case, wait for it to load
+      if (playId === 0) {
+        sound.once("load", () => {
+          // Ensure context is still resumed
+          if (Howler.ctx && Howler.ctx.state === "suspended") {
+            Howler.ctx
+              .resume()
+              .then(() => {
+                sound.play();
+              })
+              .catch((e) => {
+                console.warn("Failed to resume context after load:", e);
+              });
+          } else {
+            sound.play();
+          }
+        });
+        // Trigger loading
         sound.load();
+      } else if (playId > 0) {
+        // Sound started playing successfully
+        // Ensure context is resumed (in case it got suspended)
+        if (Howler.ctx && Howler.ctx.state === "suspended") {
+          Howler.ctx.resume().catch((e) => {
+            console.warn("Failed to resume context:", e);
+          });
+        }
       }
     },
     [
@@ -2103,10 +2109,10 @@ function App() {
    * Plays the Happy Birthday song immediately.
    * This is called when chaos starts to play the birthday song instantly.
    */
-  const playHappyBirthdaySong = useCallback(() => {
+  const playHappyBirthdaySong = useCallback(async () => {
     const birthdaySongSrc = "/audios/Happy Birthday song.mp3";
     // Don't require chaosStarted since we're calling this right when starting chaos
-    playSound(birthdaySongSrc, false);
+    await playSound(birthdaySongSrc, false);
   }, [playSound]);
 
   /**
@@ -2119,19 +2125,54 @@ function App() {
     Howler.mute(false);
 
     // Resume the global Howler AudioContext (iOS requirement)
-    if (Howler.ctx && Howler.ctx.state === "suspended") {
-      await Howler.ctx.resume();
+    // This is CRITICAL for mobile browsers
+    if (Howler.ctx) {
+      if (Howler.ctx.state === "suspended") {
+        try {
+          await Howler.ctx.resume();
+          console.log("Audio context resumed successfully");
+        } catch (e) {
+          console.error("Failed to resume audio context:", e);
+          // Don't throw - try to continue anyway
+        }
+      }
+    } else {
+      // If context doesn't exist yet, Howler will create it on first sound play
+      console.log("Audio context will be created on first sound play");
     }
 
-    // If the initial birthday song was blocked by autoplay, try to play it now
+    // Play the initial birthday song now that context is unlocked
     if (initialBirthdaySoundRef.current) {
       const sound = initialBirthdaySoundRef.current;
-      // Check if sound is not playing (was blocked by autoplay)
-      if (!sound.playing()) {
-        sound.play();
+      try {
+        // Track this sound
+        const activeSound: ActiveSound = {
+          howl: sound,
+          startTime: Date.now(),
+        };
+        activeSoundsRef.current.push(activeSound);
+
+        // Auto-cleanup after playback ends
+        sound.once("end", () => {
+          removeFromActiveSounds(sound);
+          sound.unload();
+          initialBirthdaySoundRef.current = null;
+        });
+
+        // Play the sound
+        const playId = sound.play();
+        if (playId === 0) {
+          // Sound not loaded yet, wait for load
+          sound.once("load", () => {
+            sound.play();
+          });
+          sound.load();
+        }
+      } catch (e) {
+        console.error("Failed to play initial birthday song:", e);
       }
     }
-  }, []);
+  }, [removeFromActiveSounds]);
 
   /**
    * Handles the first tap on the entry screen.
@@ -2150,7 +2191,7 @@ function App() {
       !initialBirthdaySoundRef.current ||
       !initialBirthdaySoundRef.current.playing()
     ) {
-      playHappyBirthdaySong();
+      await playHappyBirthdaySong();
     }
 
     // Pick a random starting video
