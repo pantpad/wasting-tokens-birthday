@@ -150,7 +150,7 @@
         "Bouncing intensity increases with chaos level",
         "Uses requestAnimationFrame for smooth animation"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

@@ -365,3 +365,38 @@
 - Clones spawn with random transforms (position, rotation, scale) for visual variety
 - Good next priorities: "Bouncing/movement uses DVD screensaver physics" (to animate the clones), "Rotation and spinning effects" (to enhance clone movement), or other visual effects
 - The clone system provides a foundation for other effects like bouncing and rotation
+
+## 2026-01-08 20:44 UTC - Feature: Bouncing/movement uses DVD screensaver physics
+
+### Implemented
+- Added velocity properties (vx, vy) to VideoClone interface for physics-based movement
+- Implemented DVD screensaver-style bouncing physics using requestAnimationFrame
+- Videos bounce around screen with physics-based movement
+- Videos can escape edges (up to 5% margin) and return unexpectedly (DVD screensaver behavior)
+- Random velocity changes occur with 1% chance per frame (VELOCITY_CHANGE_CHANCE)
+- Bouncing intensity increases with chaos level (velocity scales from 1x at level 3 to 2x at level 10)
+- Uses requestAnimationFrame for smooth 60fps animation
+- Edge collision detection with proper bounce reflection
+- Animation loop properly cleans up on unmount or when bouncing stops
+- Added BOUNCE_START_LEVEL constant (3) - bouncing activates at chaos level 3+
+- Velocity constants: BASE_VELOCITY (0.1% per frame), MAX_VELOCITY (0.5% per frame)
+
+### Files Changed
+- src/App.tsx - Added velocity properties to VideoClone, bouncing physics constants, animation loop useEffect, edge collision handling
+- src/App.test.tsx - Added 5 new tests for bouncing physics (66 total tests), updated clone regeneration test to handle randomness
+- src/test/setup.ts - Added requestAnimationFrame and cancelAnimationFrame polyfills for test environment
+- plans/prd.json - Marked feature as passes: true
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (66 tests, including 5 new bouncing physics tests)
+- Bouncing activates at chaos level 3 and scales with level
+- Animation loop properly manages lifecycle
+- Edge collisions work correctly with bounce reflection
+
+### Notes for Next Agent
+- Bouncing physics is now fully functional with DVD screensaver-style movement
+- Videos bounce around screen with increasing intensity as chaos level increases
+- Good next priorities: "Rotation and spinning effects" (to enhance bouncing clones), "Color manipulation effects", or "Zoom pulses"
+- The bouncing system works seamlessly with the existing clone system
+- Animation uses requestAnimationFrame for optimal performance

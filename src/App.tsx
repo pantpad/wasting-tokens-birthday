@@ -17,6 +17,13 @@ const SHAKE_MAX_INTENSITY = 15 // px - violent shake at max chaos
 const MAX_VIDEO_CLONES = 15 // Maximum simultaneous video clones for performance
 const CLONE_START_LEVEL = 2 // Chaos level when clones start appearing
 
+// Bouncing physics constants
+const BOUNCE_START_LEVEL = 3 // Chaos level when bouncing begins
+const BASE_VELOCITY = 0.1 // Base velocity (percentage per frame)
+const MAX_VELOCITY = 0.5 // Maximum velocity at max chaos
+const VELOCITY_CHANGE_CHANCE = 0.01 // 1% chance per frame to change velocity randomly
+const VELOCITY_CHANGE_MAGNITUDE = 0.2 // How much velocity can change randomly
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -46,10 +53,12 @@ interface ActiveSound {
 // Type for video clone properties
 interface VideoClone {
   id: string
-  x: number // Position X (percentage or pixels)
-  y: number // Position Y (percentage or pixels)
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
   rotation: number // Rotation in degrees
   scale: number // Scale factor
+  vx: number // Velocity X (percentage per frame)
+  vy: number // Velocity Y (percentage per frame)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -77,6 +86,8 @@ function App() {
   const [chaosLevel, setChaosLevel] = useState(1)
   const [videoClones, setVideoClones] = useState<VideoClone[]>([])
   const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
+  const animationFrameRef = useRef<number | null>(null)
+  const clonesRef = useRef<VideoClone[]>([]) // Ref to track clones for animation loop
   
   // Touch tracking refs for swipe detection
   const touchStartY = useRef<number | null>(null)
@@ -161,6 +172,17 @@ function App() {
     const cloneCount = totalVideoCount - 1
     const clones: VideoClone[] = []
     for (let i = 0; i < cloneCount; i++) {
+      // Calculate velocity based on chaos level
+      const levelProgress = chaosLevel >= BOUNCE_START_LEVEL 
+        ? (chaosLevel - BOUNCE_START_LEVEL) / (MAX_CHAOS_LEVEL - BOUNCE_START_LEVEL)
+        : 0
+      const velocity = BASE_VELOCITY + levelProgress * (MAX_VELOCITY - BASE_VELOCITY)
+      
+      // Random initial velocity direction
+      const angle = Math.random() * Math.PI * 2
+      const vx = Math.cos(angle) * velocity
+      const vy = Math.sin(angle) * velocity
+      
       clones.push({
         id: `clone-${i}-${Date.now()}-${Math.random()}`,
         // Random position (0-100% for both axes, but keep some on screen)
@@ -170,11 +192,105 @@ function App() {
         rotation: (Math.random() - 0.5) * 360,
         // Random scale (0.5 to 1.5)
         scale: Math.random() * 1.0 + 0.5,
+        // Initial velocity
+        vx,
+        vy,
       })
     }
 
     setVideoClones(clones)
+    clonesRef.current = clones // Update ref for animation loop
   }, [chaosStarted, chaosLevel, currentVideoIndex]) // Regenerate when video changes too
+
+  /**
+   * DVD screensaver-style bouncing physics for video clones.
+   * Videos bounce around screen with physics, can escape edges and return unexpectedly.
+   * Bouncing intensity increases with chaos level.
+   */
+  useEffect(() => {
+    if (!chaosStarted || chaosLevel < BOUNCE_START_LEVEL) {
+      // Stop animation if bouncing shouldn't be active
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+      return
+    }
+
+    // Calculate velocity scale based on chaos level
+    const levelProgress = (chaosLevel - BOUNCE_START_LEVEL) / (MAX_CHAOS_LEVEL - BOUNCE_START_LEVEL)
+    const velocityScale = 1 + levelProgress // 1x at level 3, 2x at level 10
+
+    const animate = () => {
+      setVideoClones((prevClones) => {
+        // Update ref for next frame
+        const updatedClones = prevClones.map((clone) => {
+          let { x, y, vx, vy } = clone
+
+          // Apply random velocity changes occasionally (DVD screensaver quirk)
+          if (Math.random() < VELOCITY_CHANGE_CHANCE) {
+            vx += (Math.random() - 0.5) * VELOCITY_CHANGE_MAGNITUDE * velocityScale
+            vy += (Math.random() - 0.5) * VELOCITY_CHANGE_MAGNITUDE * velocityScale
+          }
+
+          // Scale velocity with chaos level
+          const scaledVx = vx * velocityScale
+          const scaledVy = vy * velocityScale
+
+          // Update position
+          x += scaledVx
+          y += scaledVy
+
+          // Handle edge collisions with bouncing
+          // Videos can escape edges and return unexpectedly (DVD screensaver behavior)
+          // We'll allow them to go slightly off-screen before bouncing
+          const margin = 5 // Allow 5% off-screen before bouncing
+          
+          if (x < -margin) {
+            x = -margin
+            vx = Math.abs(vx) // Bounce right
+          } else if (x > 100 + margin) {
+            x = 100 + margin
+            vx = -Math.abs(vx) // Bounce left
+          }
+
+          if (y < -margin) {
+            y = -margin
+            vy = Math.abs(vy) // Bounce down
+          } else if (y > 100 + margin) {
+            y = 100 + margin
+            vy = -Math.abs(vy) // Bounce up
+          }
+
+          return {
+            ...clone,
+            x,
+            y,
+            vx,
+            vy,
+          }
+        })
+
+        // Update ref for next frame
+        clonesRef.current = updatedClones
+        return updatedClones
+      })
+
+      // Continue animation loop
+      animationFrameRef.current = requestAnimationFrame(animate)
+    }
+
+    // Start animation loop
+    animationFrameRef.current = requestAnimationFrame(animate)
+
+    // Cleanup on unmount or when bouncing stops
+    return () => {
+      if (animationFrameRef.current !== null) {
+        cancelAnimationFrame(animationFrameRef.current)
+        animationFrameRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel]) // Re-run when chaos state or level changes
 
   /**
    * Screen shake effect.
