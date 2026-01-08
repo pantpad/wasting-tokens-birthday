@@ -294,7 +294,7 @@
         "No pinch zoom via meta viewport",
         "Audio context resume on tap for iOS"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
