@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import App from './App'
 
 // Track mock Howl instances and play calls
@@ -477,6 +477,120 @@ describe('App', () => {
       // Verify Howl instances were created with audio from pool
       expect(mockHowlInstances.length).toBe(1)
       expect(mockHowlInstances[0].src[0]).toMatch(/\/audios\/.*\.mp3$/)
+    })
+  })
+
+  describe('Time-based Escalation System', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('starts at chaos level 1 when chaos begins', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Chaos level should be 1 initially
+      const chaosContainer = screen.getByTestId('chaos-container')
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '1')
+    })
+
+    it('increments chaos level every second', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Initially at level 1
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '1')
+      
+      // After 1 second, should be at level 2
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '2')
+      
+      // After another second (2s total), should be at level 3
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '3')
+    })
+
+    it('reaches chaos level 10 after 9 seconds', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Advance 9 seconds (9 intervals of 1 second)
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      
+      // Should be at max level 10
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+    })
+
+    it('stays at chaos level 10 after reaching maximum', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Advance 15 seconds (well past max)
+      act(() => {
+        vi.advanceTimersByTime(15000)
+      })
+      
+      // Should still be at max level 10 (not 11 or higher)
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+    })
+
+    it('chaos level does not change before chaos starts', () => {
+      const { container } = render(<App />)
+      
+      // Entry screen should not have chaos level
+      expect(container.querySelector('[data-chaos-level]')).not.toBeInTheDocument()
+      
+      // Advance time without starting chaos
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+      
+      // Still no chaos level
+      expect(container.querySelector('[data-chaos-level]')).not.toBeInTheDocument()
+    })
+
+    it('escalation progresses through all levels from 1 to 10', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Verify progression through each level
+      for (let expectedLevel = 1; expectedLevel <= 10; expectedLevel++) {
+        expect(chaosContainer).toHaveAttribute('data-chaos-level', String(expectedLevel))
+        
+        if (expectedLevel < 10) {
+          act(() => {
+            vi.advanceTimersByTime(1000)
+          })
+        }
+      }
     })
   })
 

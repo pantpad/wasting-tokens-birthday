@@ -114,7 +114,7 @@
         "Chaos level 9 at 8-9s: Random meme text spawning",
         "Chaos level 10 at 9-10s: All effects at full intensity"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

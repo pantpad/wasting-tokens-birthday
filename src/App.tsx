@@ -1,6 +1,10 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Howl, Howler } from 'howler'
 import './App.css'
+
+// Escalation system constants
+const MAX_CHAOS_LEVEL = 10
+const ESCALATION_INTERVAL = 1000 // 1 second per level
 
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
@@ -42,6 +46,7 @@ const SWIPE_THRESHOLD = 50
 function App() {
   const [chaosStarted, setChaosStarted] = useState(false)
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+  const [chaosLevel, setChaosLevel] = useState(1)
   const videoRef = useRef<HTMLVideoElement>(null)
   
   // Touch tracking refs for swipe detection
@@ -50,6 +55,41 @@ function App() {
   
   // Track active sounds for limiting simultaneous playback
   const activeSoundsRef = useRef<ActiveSound[]>([])
+  
+  // Escalation timer ref for cleanup
+  const escalationTimerRef = useRef<number | null>(null)
+  
+  /**
+   * Time-based escalation system.
+   * Increments chaos level every second from 1 to 10 over 10 seconds.
+   * Once level 10 is reached, the timer stops and chaos stays at maximum.
+   */
+  useEffect(() => {
+    if (!chaosStarted) return
+    
+    // Start the escalation timer
+    escalationTimerRef.current = window.setInterval(() => {
+      setChaosLevel((prev) => {
+        if (prev >= MAX_CHAOS_LEVEL) {
+          // Reached maximum - clear the interval
+          if (escalationTimerRef.current !== null) {
+            clearInterval(escalationTimerRef.current)
+            escalationTimerRef.current = null
+          }
+          return MAX_CHAOS_LEVEL
+        }
+        return prev + 1
+      })
+    }, ESCALATION_INTERVAL)
+    
+    // Cleanup on unmount or when chaos stops
+    return () => {
+      if (escalationTimerRef.current !== null) {
+        clearInterval(escalationTimerRef.current)
+        escalationTimerRef.current = null
+      }
+    }
+  }, [chaosStarted])
   
   /**
    * Removes a sound from the active sounds tracking array.
@@ -295,6 +335,7 @@ function App() {
       onClick={handleChaosClick}
       onPointerMove={handlePointerMove}
       data-testid="chaos-container"
+      data-chaos-level={chaosLevel}
     >
       <div className="chaos-active">
         {/* Full-screen vertical video feed */}

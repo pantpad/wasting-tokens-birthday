@@ -211,3 +211,30 @@
 - Volume ducking provides compression rather than clipping
 - Good next priorities: "Time-based escalation system" or "File structure matches spec.md layout"
 - The escalation system is a major feature that gates many visual effects
+
+## 2026-01-08 20:22 UTC - Feature: Time-based Escalation System
+
+### Implemented
+- Added chaosLevel state that starts at 1 and increments to 10 over 10 seconds
+- Created escalation timer using setInterval with 1000ms interval
+- Timer automatically clears when chaos level reaches maximum (10)
+- Added MAX_CHAOS_LEVEL (10) and ESCALATION_INTERVAL (1000ms) constants
+- Exposed chaos level via data-chaos-level attribute on chaos container
+- Timer properly cleans up on component unmount
+- useEffect manages the timer lifecycle based on chaosStarted state
+
+### Files Changed
+- src/App.tsx - Added chaosLevel state, escalationTimerRef, useEffect for timer, data-chaos-level attribute
+- src/App.test.tsx - Added 6 new tests for escalation system (40 total tests), imported act from @testing-library/react
+- plans/prd.json - Marked feature as passes: true
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (40 tests)
+
+### Notes for Next Agent
+- The time-based escalation system is now functional
+- Chaos level is exposed via data-chaos-level attribute for CSS targeting and testing
+- Many visual effects in the PRD depend on this chaos level (rotation at 4+, hue at 5+, glitch at 7+, etc.)
+- Good next priorities: "Chaos level persists after reaching maximum" or visual effects that use chaos level
+- The chaosLevel variable is available in the component for conditional rendering based on level
