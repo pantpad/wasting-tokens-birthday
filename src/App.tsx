@@ -13,6 +13,10 @@ const SHAKE_MAX_INTERVAL = 200 // ms - interval at start (subtle)
 const SHAKE_MIN_INTENSITY = 2 // px - subtle shake at level 3
 const SHAKE_MAX_INTENSITY = 15 // px - violent shake at max chaos
 
+// Video clone constants
+const MAX_VIDEO_CLONES = 15 // Maximum simultaneous video clones for performance
+const CLONE_START_LEVEL = 2 // Chaos level when clones start appearing
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -39,6 +43,15 @@ interface ActiveSound {
   startTime: number
 }
 
+// Type for video clone properties
+interface VideoClone {
+  id: string
+  x: number // Position X (percentage or pixels)
+  y: number // Position Y (percentage or pixels)
+  rotation: number // Rotation in degrees
+  scale: number // Scale factor
+}
+
 // Video pool - available videos in the public/videos folder
 const VIDEO_POOL = [
   '/videos/Happy Birthday To You — Italian Brainrot Edition - Bernie Espo (720p, h264, youtube).mp4',
@@ -62,7 +75,8 @@ function App() {
   const [chaosStarted, setChaosStarted] = useState(false)
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const [chaosLevel, setChaosLevel] = useState(1)
-  const videoRef = useRef<HTMLVideoElement>(null)
+  const [videoClones, setVideoClones] = useState<VideoClone[]>([])
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map())
   
   // Touch tracking refs for swipe detection
   const touchStartY = useRef<number | null>(null)
@@ -110,6 +124,58 @@ function App() {
     }
   }, [chaosStarted])
   
+  /**
+   * Video clone generation system.
+   * Creates video clones based on chaos level, with random transforms.
+   * Clones start appearing at level 2 and increase up to max (15).
+   */
+  useEffect(() => {
+    if (!chaosStarted) {
+      setVideoClones([])
+      return
+    }
+
+    // Calculate number of clones based on chaos level
+    // Level 1: 1 video (no clones)
+    // Level 2: 2-3 total videos (1 base + 1-2 clones)
+    // Level 3-10: Increasing clones up to MAX_VIDEO_CLONES total
+    let totalVideoCount = 1 // Base video only at level 1
+    
+    if (chaosLevel >= CLONE_START_LEVEL) {
+      // At level 2, we want 2-3 total (1 base + 1-2 clones)
+      if (chaosLevel === CLONE_START_LEVEL) {
+        totalVideoCount = 2 + Math.floor(Math.random() * 2) // 2 or 3 total
+      } else {
+        // For levels 3-10, scale from ~4 to MAX_VIDEO_CLONES total
+        const levelProgress = (chaosLevel - CLONE_START_LEVEL) / (MAX_CHAOS_LEVEL - CLONE_START_LEVEL)
+        const minTotal = 4
+        const maxTotal = MAX_VIDEO_CLONES
+        totalVideoCount = Math.floor(minTotal + levelProgress * (maxTotal - minTotal))
+        // Add some randomness
+        totalVideoCount += Math.floor(Math.random() * 3) - 1 // -1, 0, or +1
+        totalVideoCount = Math.min(totalVideoCount, MAX_VIDEO_CLONES)
+      }
+    }
+
+    // Generate clones (totalVideoCount - 1, since 1 is the base video)
+    const cloneCount = totalVideoCount - 1
+    const clones: VideoClone[] = []
+    for (let i = 0; i < cloneCount; i++) {
+      clones.push({
+        id: `clone-${i}-${Date.now()}-${Math.random()}`,
+        // Random position (0-100% for both axes, but keep some on screen)
+        x: Math.random() * 80 + 10, // 10-90%
+        y: Math.random() * 80 + 10, // 10-90%
+        // Random rotation (-180 to 180 degrees)
+        rotation: (Math.random() - 0.5) * 360,
+        // Random scale (0.5 to 1.5)
+        scale: Math.random() * 1.0 + 0.5,
+      })
+    }
+
+    setVideoClones(clones)
+  }, [chaosStarted, chaosLevel, currentVideoIndex]) // Regenerate when video changes too
+
   /**
    * Screen shake effect.
    * Activates at chaos level 3 and intensifies up to level 10.
@@ -283,12 +349,22 @@ function App() {
   /**
    * Handles video loaded - ensures autoplay starts
    */
-  const handleVideoCanPlay = useCallback(() => {
-    if (videoRef.current) {
-      // Attempt to play (may fail silently if autoplay blocked)
-      videoRef.current.play().catch(() => {
-        // Autoplay blocked - will be handled by user interaction
-      })
+  const handleVideoCanPlay = useCallback((cloneId?: string) => {
+    if (cloneId) {
+      const video = videoRefs.current.get(cloneId)
+      if (video) {
+        video.play().catch(() => {
+          // Autoplay blocked - will be handled by user interaction
+        })
+      }
+    } else {
+      // Handle base video (if we still have a ref for it)
+      const baseVideo = videoRefs.current.get('base')
+      if (baseVideo) {
+        baseVideo.play().catch(() => {
+          // Autoplay blocked - will be handled by user interaction
+        })
+      }
     }
   }, [])
 
@@ -409,19 +485,49 @@ function App() {
         }}
         data-testid="chaos-content"
       >
-        {/* Full-screen vertical video feed */}
+        {/* Full-screen vertical video feed with clones */}
         <div className="video-feed">
+          {/* Base video (always rendered) */}
           <video
-            ref={videoRef}
-            className="video-player"
+            ref={(el) => {
+              if (el) videoRefs.current.set('base', el)
+              else videoRefs.current.delete('base')
+            }}
+            className="video-player video-base"
             src={VIDEO_POOL[currentVideoIndex]}
             autoPlay
             loop
             muted
             playsInline
-            onCanPlay={handleVideoCanPlay}
+            onCanPlay={() => handleVideoCanPlay('base')}
             data-testid="chaos-video"
           />
+          
+          {/* Video clones */}
+          {videoClones.map((clone) => (
+            <video
+              key={clone.id}
+              ref={(el) => {
+                if (el) videoRefs.current.set(clone.id, el)
+                else videoRefs.current.delete(clone.id)
+              }}
+              className="video-player video-clone"
+              src={VIDEO_POOL[currentVideoIndex]}
+              autoPlay
+              loop
+              muted
+              playsInline
+              onCanPlay={() => handleVideoCanPlay(clone.id)}
+              style={{
+                position: 'absolute',
+                left: `${clone.x}%`,
+                top: `${clone.y}%`,
+                transform: `translate(-50%, -50%) rotate(${clone.rotation}deg) scale(${clone.scale})`,
+                transformOrigin: 'center center',
+              }}
+              data-testid={`video-clone-${clone.id}`}
+            />
+          ))}
         </div>
         
         {/* Happy Birthday text appears at max chaos level */}

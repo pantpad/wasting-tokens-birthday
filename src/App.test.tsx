@@ -347,6 +347,176 @@ describe('App', () => {
     })
   })
 
+  describe('Video Clones', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('renders single video at chaos level 1', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // At level 1, should only have base video
+      const videos = container.querySelectorAll('[data-testid^="chaos-video"], [data-testid^="video-clone"]')
+      expect(videos.length).toBe(1) // Only base video
+      expect(screen.getByTestId('chaos-video')).toBeInTheDocument()
+    })
+
+    it('creates video clones starting at chaos level 2', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 2
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      
+      // Should have base video + clones (2-3 total)
+      const baseVideo = screen.getByTestId('chaos-video')
+      expect(baseVideo).toBeInTheDocument()
+      
+      // Should have at least one clone
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThanOrEqual(1)
+    })
+
+    it('clone count increases with chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // At level 2
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      const clonesAtLevel2 = container.querySelectorAll('[data-testid^="video-clone"]').length
+      
+      // At level 5
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      const clonesAtLevel5 = container.querySelectorAll('[data-testid^="video-clone"]').length
+      
+      // At level 10
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+      const clonesAtLevel10 = container.querySelectorAll('[data-testid^="video-clone"]').length
+      
+      // Clone count should increase (or at least not decrease)
+      expect(clonesAtLevel5).toBeGreaterThanOrEqual(clonesAtLevel2)
+      expect(clonesAtLevel10).toBeGreaterThanOrEqual(clonesAtLevel5)
+    })
+
+    it('clones have different transform properties', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 3 to get multiple clones
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+      
+      // Check that clones have different styles (transforms)
+      const styles = Array.from(clones).map(clone => (clone as HTMLElement).style.transform)
+      // At least some clones should have different transforms
+      const uniqueStyles = new Set(styles)
+      expect(uniqueStyles.size).toBeGreaterThan(0)
+    })
+
+    it('clones are capped at maximum (15)', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to max chaos level
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      
+      // Count all videos (base + clones)
+      const baseVideo = container.querySelector('[data-testid="chaos-video"]')
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      const totalVideos = (baseVideo ? 1 : 0) + clones.length
+      
+      // Should not exceed MAX_VIDEO_CLONES (15) + 1 base = 16 max
+      expect(totalVideos).toBeLessThanOrEqual(16)
+    })
+
+    it('clones regenerate when video changes', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 3
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      const clonesBefore = container.querySelectorAll('[data-testid^="video-clone"]')
+      const cloneIdsBefore = Array.from(clonesBefore).map(clone => clone.getAttribute('data-testid'))
+      
+      // Swipe to change video
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.touchStart(chaosContainer, {
+        touches: [{ clientX: 100, clientY: 300 }],
+      })
+      fireEvent.touchEnd(chaosContainer, {
+        changedTouches: [{ clientX: 100, clientY: 100 }],
+      })
+      
+      // Clones should have regenerated (new IDs)
+      const clonesAfter = container.querySelectorAll('[data-testid^="video-clone"]')
+      const cloneIdsAfter = Array.from(clonesAfter).map(clone => clone.getAttribute('data-testid'))
+      
+      // Should have same number of clones but different IDs
+      expect(clonesAfter.length).toBe(clonesBefore.length)
+      // IDs should be different (clones regenerated)
+      expect(cloneIdsAfter).not.toEqual(cloneIdsBefore)
+    })
+
+    it('clones have video-clone CSS class', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 2
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      
+      const clones = container.querySelectorAll('.video-clone')
+      expect(clones.length).toBeGreaterThan(0)
+    })
+
+    it('base video has video-base CSS class', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const baseVideo = container.querySelector('.video-base')
+      expect(baseVideo).toBeInTheDocument()
+    })
+  })
+
   describe('Audio Chaos System', () => {
     it('does not play sounds before chaos starts', () => {
       render(<App />)

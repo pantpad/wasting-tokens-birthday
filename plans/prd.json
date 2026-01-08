@@ -138,7 +138,7 @@
         "Clones spawn from different screen positions",
         "Clone count increases with chaos level"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

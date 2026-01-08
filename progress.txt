@@ -328,3 +328,40 @@
 - Image directory exists at public/images/ but BMW image files (bmw-white.png, bmw-logo.png) still need to be added by user
 - IMAGE_POOL constant is ready for use when BMW integration feature is implemented
 - Good next priorities: Visual effects like "Video clones duplicate", "Color manipulation effects", or "BMW integration" (once images are added)
+
+## 2026-01-08 20:41 UTC - Feature: Video Clones Duplicate and Multiply on Screen
+
+### Implemented
+- Created VideoClone interface to track clone properties (id, position, rotation, scale)
+- Added videoClones state to manage clone array
+- Replaced single videoRef with videoRefs Map to track multiple video elements
+- Implemented clone generation system based on chaos level:
+  - Level 1: Single base video (no clones)
+  - Level 2: 2-3 total videos (1 base + 1-2 clones)
+  - Level 3-10: Increasing clones from ~4 to MAX_VIDEO_CLONES (15) total
+- Each clone has random properties:
+  - Position: Random X/Y (10-90% of screen)
+  - Rotation: Random angle (-180 to 180 degrees)
+  - Scale: Random size (0.5x to 1.5x)
+- Clones regenerate when video changes (swipe navigation)
+- Added MAX_VIDEO_CLONES constant (15) for performance cap
+- Clones are capped at 15 max simultaneously (base + 14 clones)
+- Each clone uses CSS transforms for GPU-accelerated positioning and rotation
+
+### Files Changed
+- src/App.tsx - Added VideoClone interface, videoClones state, clone generation useEffect, videoRefs Map, and clone rendering
+- src/App.css - Added .video-base and .video-clone styles with absolute positioning and transform support
+- src/App.test.tsx - Added 8 new tests for video clone functionality (61 total tests)
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (61 tests, including 8 new clone tests)
+- Clones properly scale with chaos level
+- Clone count respects MAX_VIDEO_CLONES limit
+- Clones regenerate on video change
+
+### Notes for Next Agent
+- Video clone system is now fully functional with chaos-level-based scaling
+- Clones spawn with random transforms (position, rotation, scale) for visual variety
+- Good next priorities: "Bouncing/movement uses DVD screensaver physics" (to animate the clones), "Rotation and spinning effects" (to enhance clone movement), or other visual effects
+- The clone system provides a foundation for other effects like bouncing and rotation

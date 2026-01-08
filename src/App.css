@@ -112,6 +112,26 @@
   /* Note: muted is required for autoplay on most browsers */
 }
 
+/* Base video - full screen */
+.video-base {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* Video clones - positioned and transformed */
+.video-clone {
+  /* Clones are positioned absolutely with transforms */
+  width: 50%; /* Smaller than base video for visual variety */
+  height: 50%;
+  z-index: 2;
+  /* GPU acceleration for transforms */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
 /* Happy Birthday overlay - appears at max chaos level 10 */
 .happy-birthday-overlay {
   position: absolute;
