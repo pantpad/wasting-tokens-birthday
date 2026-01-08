@@ -1685,9 +1685,9 @@ function App() {
                 }}
                 style={{
                   position: 'absolute',
-                  left: `${clone.x}%`,
-                  top: `${clone.y}%`,
-                  transform: `translate(-50%, -50%) rotate(${clone.rotation}deg) scale(${clone.scale * pulseScale})`,
+                  left: 0,
+                  top: 0,
+                  transform: `translate(calc(${clone.x}% - 50%), calc(${clone.y}% - 50%)) rotate(${clone.rotation}deg) scale(${clone.scale * pulseScale})`,
                   transformOrigin: 'center center',
                 }}
                 data-testid={`video-clone-${clone.id}`}
@@ -1799,9 +1799,9 @@ function App() {
             className="floating-meme-text"
             style={{
               position: 'absolute',
-              left: `${text.x}%`,
-              top: `${text.y}%`,
-              transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
+              left: 0,
+              top: 0,
+              transform: `translate(calc(${text.x}% - 50%), calc(${text.y}% - 50%)) rotate(${text.rotation}deg)`,
               fontSize: `${text.size}rem`,
               color: text.color,
             }}
@@ -1818,9 +1818,9 @@ function App() {
             className="floating-birthday-text"
             style={{
               position: 'absolute',
-              left: `${text.x}%`,
-              top: `${text.y}%`,
-              transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
+              left: 0,
+              top: 0,
+              transform: `translate(calc(${text.x}% - 50%), calc(${text.y}% - 50%)) rotate(${text.rotation}deg)`,
               fontSize: `${text.size}rem`,
               color: text.color,
             }}

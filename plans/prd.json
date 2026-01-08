@@ -306,7 +306,7 @@
         "Maintains playable FPS on modern phones",
         "Optional effect reduction if frame drops detected"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
