@@ -1939,6 +1939,61 @@ function App() {
   }, [removeFromActiveSounds]);
 
   /**
+   * Plays a specific sound file.
+   * Enforces maximum simultaneous sounds with ducking and fadeout.
+   */
+  const playSound = useCallback(
+    (audioSrc: string, requireChaosStarted: boolean = true) => {
+      // Only play sounds after chaos has started (unless explicitly allowed)
+      if (requireChaosStarted && !chaosStarted) return;
+
+      // Check if we're at the maximum limit
+      if (activeSoundsRef.current.length >= MAX_SIMULTANEOUS_SOUNDS) {
+        // Fade out oldest sound to make room
+        fadeOutOldestSound();
+      }
+
+      // Determine initial volume based on current sound count
+      const shouldDuck = activeSoundsRef.current.length >= DUCKING_THRESHOLD - 1;
+      const initialVolume = shouldDuck ? DUCKED_VOLUME : BASE_VOLUME;
+
+      // Create the Howl instance
+      const sound = new Howl({
+        src: [audioSrc],
+        volume: initialVolume,
+      });
+
+      // Track this sound
+      const activeSound: ActiveSound = {
+        howl: sound,
+        startTime: Date.now(),
+      };
+      activeSoundsRef.current.push(activeSound);
+
+      // Apply ducking to all sounds now that we've added one
+      applyVolumeDucking();
+
+      // Auto-cleanup after playback ends
+      sound.on("end", () => {
+        removeFromActiveSounds(sound);
+        sound.unload();
+        // Re-apply volume levels after a sound ends
+        applyVolumeDucking();
+      });
+
+      // Load and play - Howler will load the file on first play
+      sound.load(); // Explicitly load the file
+      sound.play();
+    },
+    [
+      chaosStarted,
+      fadeOutOldestSound,
+      applyVolumeDucking,
+      removeFromActiveSounds,
+    ]
+  );
+
+  /**
    * Plays a random sound from the audio pool.
    * Enforces maximum simultaneous sounds with ducking and fadeout.
    */
@@ -1946,53 +2001,23 @@ function App() {
     // Only play sounds after chaos has started
     if (!chaosStarted) return;
 
-    // Check if we're at the maximum limit
-    if (activeSoundsRef.current.length >= MAX_SIMULTANEOUS_SOUNDS) {
-      // Fade out oldest sound to make room
-      fadeOutOldestSound();
-    }
-
     // Pick a random audio file from the pool
     const randomIndex = Math.floor(Math.random() * AUDIO_POOL.length);
     const audioSrc = AUDIO_POOL[randomIndex];
 
-    // Determine initial volume based on current sound count
-    const shouldDuck = activeSoundsRef.current.length >= DUCKING_THRESHOLD - 1;
-    const initialVolume = shouldDuck ? DUCKED_VOLUME : BASE_VOLUME;
+    // Play the random sound
+    playSound(audioSrc, true);
+  }, [chaosStarted, playSound]);
 
-    // Create the Howl instance
-    const sound = new Howl({
-      src: [audioSrc],
-      volume: initialVolume,
-    });
-
-    // Track this sound
-    const activeSound: ActiveSound = {
-      howl: sound,
-      startTime: Date.now(),
-    };
-    activeSoundsRef.current.push(activeSound);
-
-    // Apply ducking to all sounds now that we've added one
-    applyVolumeDucking();
-
-    // Auto-cleanup after playback ends
-    sound.on("end", () => {
-      removeFromActiveSounds(sound);
-      sound.unload();
-      // Re-apply volume levels after a sound ends
-      applyVolumeDucking();
-    });
-
-    // Load and play - Howler will load the file on first play
-    sound.load(); // Explicitly load the file
-    sound.play();
-  }, [
-    chaosStarted,
-    fadeOutOldestSound,
-    applyVolumeDucking,
-    removeFromActiveSounds,
-  ]);
+  /**
+   * Plays the Happy Birthday song immediately.
+   * This is called when chaos starts to play the birthday song instantly.
+   */
+  const playHappyBirthdaySong = useCallback(() => {
+    const birthdaySongSrc = "/audios/Happy Birthday song.mp3";
+    // Don't require chaosStarted since we're calling this right when starting chaos
+    playSound(birthdaySongSrc, false);
+  }, [playSound]);
 
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.
@@ -2026,7 +2051,13 @@ function App() {
 
     // Transition to chaos mode
     setChaosStarted(true);
-  }, [chaosStarted, unlockAudio]);
+
+    // Play Happy Birthday song instantly when chaos starts
+    // Use setTimeout to ensure audio context is fully unlocked
+    setTimeout(() => {
+      playHappyBirthdaySong();
+    }, 0);
+  }, [chaosStarted, unlockAudio, playHappyBirthdaySong]);
 
   /**
    * Handles video loaded - ensures autoplay starts
