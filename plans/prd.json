@@ -37,7 +37,7 @@
         "No loading indicators or other UI elements visible",
         "Uses 100dvh for proper mobile address bar handling"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

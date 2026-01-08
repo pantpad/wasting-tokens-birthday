@@ -38,3 +38,29 @@
 - Next priority should be either "File structure matches spec.md layout" or "Black Void Entry screen"
 - Audio and video files are accessible via public/ symlinks
 - BMW images (bmw-white.png, bmw-logo.png) still need to be added to public/images/
+
+## 2026-01-08 20:04 UTC - Feature: Black Void Entry Screen
+
+### Implemented
+- Created the Black Void Entry screen as the initial user-facing view
+- Pure black (#000000) background fills entire viewport
+- White "TAP HERE" text centered on screen
+- Subtle pulsing animation on text to draw attention (opacity + scale)
+- Uses 100dvh for proper mobile address bar handling
+- No loading indicators or other UI elements (minimal "broken" feel)
+- Touch-friendly with proper cursor and user-select settings
+
+### Files Changed
+- src/App.tsx - Replaced placeholder content with entry screen component
+- src/App.css - Complete rewrite with entry-screen styles and pulse animation
+- src/App.test.tsx - Updated tests to verify entry screen elements
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (3 tests)
+
+### Notes for Next Agent
+- The entry screen is now complete and ready for interaction handling
+- Next priority should be "First tap unlocks audio context and triggers chaos"
+- The screen waits for user tap but doesn't handle it yet - that's the next feature
+- Consider also the "File structure matches spec.md layout" task for BMW images
