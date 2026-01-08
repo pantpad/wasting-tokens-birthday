@@ -49,7 +49,7 @@
         "Howler.js audio system initializes properly",
         "No audio plays before first interaction"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",

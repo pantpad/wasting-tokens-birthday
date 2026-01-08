@@ -64,3 +64,32 @@
 - Next priority should be "First tap unlocks audio context and triggers chaos"
 - The screen waits for user tap but doesn't handle it yet - that's the next feature
 - Consider also the "File structure matches spec.md layout" task for BMW images
+
+## 2026-01-08 20:07 UTC - Feature: First Tap Unlocks Audio Context and Triggers Chaos
+
+### Implemented
+- Added state management (chaosStarted) to track entry/chaos mode transition
+- Implemented tap/click handler on entry screen that:
+  - Resumes AudioContext if suspended (iOS requirement)
+  - Initializes Howler.js for audio playback
+  - Transitions UI from black void entry to chaos container
+- Added keyboard accessibility (Enter/Space to start)
+- Made entire entry screen tappable (not just the text)
+- Created chaos-container and chaos-active CSS classes for the chaos mode UI
+- No audio plays before first interaction (per spec requirement)
+
+### Files Changed
+- src/App.tsx - Added chaosStarted state, unlockAudio function, handleEntryTap handler, and chaos mode JSX
+- src/App.css - Updated entry-screen styles, added chaos-container and chaos-active styles
+- src/App.test.tsx - Added comprehensive tests for tap-to-start functionality (9 total tests)
+- plans/prd.json - Marked feature as passes: true
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (9 tests)
+
+### Notes for Next Agent
+- The tap-to-start functionality is now complete
+- Chaos container is a placeholder - next features should add actual content (videos, effects)
+- Good next priorities: "TikTok-style vertical video feed" or "Audio chaos system triggers sounds"
+- The Howler.js mock is set up in tests, ready for audio testing
