@@ -1,0 +1,336 @@
+{
+  "project": "Brainrot Birthday: Michael Edition",
+  "description": "A mobile-first, TikTok/Reels-style brainrot website celebrating Michael's birthday with escalating visual and audio chaos, featuring white BMW references and maximum sensory overload",
+  "spec_file": "spec.md",
+  "features": [
+    {
+      "category": "setup",
+      "description": "Project initializes with React, Vite, and Howler.js for audio management",
+      "steps": [
+        "Run pnpm create vite with React template",
+        "Install howler.js dependency (^2.2.4)",
+        "Configure Vite for static asset handling (videos, audios, images)",
+        "Set up proper meta viewport for mobile (no pinch zoom)",
+        "Verify pnpm dev starts without errors"
+      ],
+      "passes": false
+    },
+    {
+      "category": "setup",
+      "description": "File structure matches spec.md layout",
+      "steps": [
+        "Create /audios directory with audio files",
+        "Create /videos directory with video files",
+        "Create /images directory with BMW assets (bmw-white.png, bmw-logo.png)",
+        "Verify all media files are accessible via Vite static serving",
+        "Set up proper imports in main application file"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Black Void Entry screen displays correctly",
+      "steps": [
+        "Pure black screen (#000000) fills entire viewport",
+        "White 'TAP HERE' text centered on screen",
+        "Text possibly pulses subtly to draw attention",
+        "No loading indicators or other UI elements visible",
+        "Uses 100dvh for proper mobile address bar handling"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "First tap unlocks audio context and triggers chaos",
+      "steps": [
+        "Entry gate waits for first user tap",
+        "Tap resumes AudioContext (iOS requirement)",
+        "Tap transitions from black void to chaos mode",
+        "Howler.js audio system initializes properly",
+        "No audio plays before first interaction"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "TikTok-style vertical video feed renders correctly",
+      "steps": [
+        "Full-screen vertical video container",
+        "Videos display in 9:16 aspect ratio (vertical)",
+        "Videos loop infinitely",
+        "Videos auto-play after first tap interaction",
+        "Video fills viewport properly on mobile"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Swipe navigation changes video content",
+      "steps": [
+        "Swipe up loads next video from pool",
+        "Swipe down loads previous video from pool",
+        "Touch events are primary interaction method",
+        "Default scroll behavior is prevented",
+        "Custom swipe handling implemented"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Audio chaos system triggers sounds on every interaction",
+      "steps": [
+        "Random sound from pool plays on tap/click",
+        "Sound plays on scroll/swipe",
+        "Sound plays on touch move",
+        "Sounds play on any pointer event",
+        "Audio files auto-detected from /audios folder"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Audio system enforces maximum simultaneous sounds",
+      "steps": [
+        "Max 8 simultaneous sounds playing",
+        "Audio ducking when approaching limit",
+        "Sounds compress rather than clip",
+        "Oldest sounds fade out when limit reached",
+        "No audio blowout on rapid interactions"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Time-based escalation system activates progressively over 10 seconds",
+      "steps": [
+        "Chaos level 1 at 0-1s: Single video, basic audio",
+        "Chaos level 2 at 1-2s: Video starts duplicating (2-3 clones)",
+        "Chaos level 3 at 2-3s: Bouncing begins, slight screen shake",
+        "Chaos level 4 at 3-4s: Rotation/spinning on videos",
+        "Chaos level 5 at 4-5s: Color hue shifting begins",
+        "Chaos level 6 at 5-6s: Zoom pulses, more video clones",
+        "Chaos level 7 at 6-7s: Glitch overlays, playback speed changes",
+        "Chaos level 8 at 7-8s: Fake UI elements appear",
+        "Chaos level 9 at 8-9s: Random meme text spawning",
+        "Chaos level 10 at 9-10s: All effects at full intensity"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Chaos level persists after reaching maximum",
+      "steps": [
+        "After 10 seconds, chaos stays at level 10",
+        "Swiping changes video but chaos doesn't reset",
+        "No mechanism to decrease chaos level",
+        "'Happy Birthday' text starts appearing at max chaos",
+        "Session maintains chaos state"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Video clones duplicate and multiply on screen",
+      "steps": [
+        "Videos duplicate randomly based on chaos level",
+        "Each clone can have different transform properties",
+        "Max clones capped at 10-15 for performance",
+        "Clones spawn from different screen positions",
+        "Clone count increases with chaos level"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Bouncing/movement uses DVD screensaver physics",
+      "steps": [
+        "Videos bounce around screen with physics",
+        "Videos can escape edges and return unexpectedly",
+        "Random velocity changes occur",
+        "Bouncing intensity increases with chaos level",
+        "Uses requestAnimationFrame for smooth animation"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Rotation and spinning effects apply to videos",
+      "steps": [
+        "Random rotation angles applied to videos",
+        "Some videos spin continuously",
+        "Spin speed varies per video",
+        "Rotation activates at chaos level 4+",
+        "Uses CSS transforms for GPU acceleration"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Screen shake effect intensifies with chaos level",
+      "steps": [
+        "Subtle shake begins at chaos level 3",
+        "Uses CSS transform on body/container",
+        "Shake intensity increases with chaos level",
+        "Violent shaking at max chaos",
+        "Shake intervals: 50-100ms at maximum"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Color manipulation effects including hue rotation",
+      "steps": [
+        "Hue rotation creates rainbow cycling effect",
+        "Occasional color inversion",
+        "Saturation spikes occur randomly",
+        "Color effects activate at chaos level 5+",
+        "Full RGB spectrum used for chaos colors"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Zoom pulses make elements breathe",
+      "steps": [
+        "Elements scale from 1.0 to 1.1 to 1.0",
+        "Pulse frequency increases with chaos level",
+        "Individual elements can pulse independently",
+        "Pulse intervals: 0.3-0.8s with easing",
+        "Zoom pulses activate at chaos level 6+"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Video playback speed changes randomly",
+      "steps": [
+        "Videos randomly speed up (2x, 3x)",
+        "Videos randomly slow down (0.5x, 0.25x)",
+        "Optional reverse playback if supported",
+        "Playback speed changes at chaos level 7+",
+        "Different clones can have different speeds"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Glitch and datamosh overlay effects",
+      "steps": [
+        "CSS filters: contrast and brightness spikes",
+        "Chromatic aberration effect (RGB split)",
+        "Scan lines overlay",
+        "Random 'corruption' rectangles appear",
+        "Glitch effects activate at chaos level 7+"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Fake UI breaking elements appear",
+      "steps": [
+        "Fake error popups: 'ERROR: Too much brainrot'",
+        "Loading spinners that go nowhere",
+        "Fake 'buffering' indicators",
+        "'Your phone is overheating' fake warnings",
+        "Fake UI appears at chaos level 8+"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Random meme text spawns float across screen",
+      "steps": [
+        "Meme phrases spawn: SKIBIDI, OHIO, SIGMA, RIZZ, GYATT",
+        "Text floats across screen with random trajectories",
+        "Random sizes, rotations, and colors",
+        "Text spawns every 0.5-2s at max chaos",
+        "Max 20 floating texts for performance"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Happy Birthday Michael text appears at max chaos",
+      "steps": [
+        "White 'Happy Birthday Michael' text spawns randomly",
+        "Frequency increases after chaos level 10",
+        "Uses bold, white, sans-serif font (Impact style)",
+        "Text floats like other meme text",
+        "Distinct from other meme phrases"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "BMW integration with escalation-based appearance",
+      "steps": [
+        "Level 3+: White BMW images start bouncing around",
+        "Level 5+: Text overlays: 'BMW GRINDSET', 'WHITE BMW ENERGY', 'M POWER'",
+        "Level 7+: BMW logo watermarks multiply",
+        "Level 10: Background flashes BMW dealership aesthetic (white/blue)",
+        "BMW Blue accent color: #0066B1"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Performance caps prevent resource exhaustion",
+      "steps": [
+        "Video clone cap: 15 max simultaneously",
+        "Sound cap: 8 simultaneous sounds",
+        "Text element cap: 20 floating texts max",
+        "Oldest elements removed when cap reached",
+        "Memory management for long sessions"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "Mobile optimizations for touch-first experience",
+      "steps": [
+        "Touch events as primary interaction",
+        "Prevent default scroll behavior",
+        "Full viewport using 100dvh",
+        "No pinch zoom via meta viewport",
+        "Audio context resume on tap for iOS"
+      ],
+      "passes": false
+    },
+    {
+      "category": "functional",
+      "description": "CSS transforms used for GPU-accelerated animations",
+      "steps": [
+        "All movement uses CSS transforms over position changes",
+        "Animations use requestAnimationFrame",
+        "GPU acceleration for smooth performance",
+        "Maintains playable FPS on modern phones",
+        "Optional effect reduction if frame drops detected"
+      ],
+      "passes": false
+    },
+    {
+      "category": "ui",
+      "description": "Typography follows spec visual style guide",
+      "steps": [
+        "'TAP HERE' and 'Happy Birthday': Bold white sans-serif (Impact)",
+        "Meme text: Mixed fonts for chaos (Comic Sans, Impact, Arial Black)",
+        "Fake errors: System font to look realistic",
+        "Primary text color: Pure white (#FFFFFF)",
+        "Base background: Deep black (#000000)"
+      ],
+      "passes": false
+    },
+    {
+      "category": "setup",
+      "description": "Project deployable to Cloudflare Pages",
+      "steps": [
+        "Build produces static output compatible with Cloudflare Pages",
+        "All assets properly bundled or served",
+        "No server-side requirements",
+        "Proper caching headers for media files",
+        "Deployment configuration ready"
+      ],
+      "passes": false
+    }
+  ]
+}
