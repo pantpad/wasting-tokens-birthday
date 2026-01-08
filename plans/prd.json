@@ -61,7 +61,7 @@
         "Videos auto-play after first tap interaction",
         "Video fills viewport properly on mobile"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

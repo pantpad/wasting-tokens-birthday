@@ -91,4 +91,64 @@ describe('App', () => {
       expect(chaosContainer?.querySelector('.chaos-active')).toBeInTheDocument()
     })
   })
+
+  describe('Video Feed', () => {
+    it('renders video element after tap', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify video element exists
+      const video = screen.getByTestId('chaos-video')
+      expect(video).toBeInTheDocument()
+    })
+
+    it('video has correct attributes for autoplay', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify video attributes
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      expect(video).toHaveAttribute('autoplay')
+      expect(video).toHaveAttribute('loop')
+      // Note: React handles muted as a property, not an attribute
+      expect(video.muted).toBe(true)
+      expect(video).toHaveAttribute('playsinline')
+    })
+
+    it('video has a valid source from the video pool', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify video has a src attribute that starts with /videos/
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      expect(video.src).toMatch(/\/videos\//)
+    })
+
+    it('video feed container exists inside chaos-active', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify video-feed container exists
+      expect(container.querySelector('.video-feed')).toBeInTheDocument()
+    })
+
+    it('video player has correct CSS class', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify video has video-player class
+      const video = screen.getByTestId('chaos-video')
+      expect(video).toHaveClass('video-player')
+    })
+  })
 })

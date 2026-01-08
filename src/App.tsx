@@ -1,9 +1,19 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Howler } from 'howler'
 import './App.css'
 
+// Video pool - available videos in the public/videos folder
+const VIDEO_POOL = [
+  '/videos/Happy Birthday To You — Italian Brainrot Edition - Bernie Espo (720p, h264, youtube).mp4',
+  '/videos/videoplayback.mp4',
+  '/videos/YTDown.com_Shorts_BRAINROT-BIRTHDAY-brainrot-tungtungtungs_Media_HvSRlRw9p-E_001_1080p.mp4',
+  '/videos/YTDown.com_YouTube_Happy-Birthday-To-You-Italian-Brainrot-E_Media_yE4CdgogwC4_002_720p.mp4',
+]
+
 function App() {
   const [chaosStarted, setChaosStarted] = useState(false)
+  const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.
@@ -32,9 +42,24 @@ function App() {
     // Unlock audio context for iOS/Safari
     unlockAudio()
 
+    // Pick a random starting video
+    setCurrentVideoIndex(Math.floor(Math.random() * VIDEO_POOL.length))
+
     // Transition to chaos mode
     setChaosStarted(true)
   }, [chaosStarted, unlockAudio])
+
+  /**
+   * Handles video loaded - ensures autoplay starts
+   */
+  const handleVideoCanPlay = useCallback(() => {
+    if (videoRef.current) {
+      // Attempt to play (may fail silently if autoplay blocked)
+      videoRef.current.play().catch(() => {
+        // Autoplay blocked - will be handled by user interaction
+      })
+    }
+  }, [])
 
   // Entry screen - black void waiting for first tap
   if (!chaosStarted) {
@@ -56,12 +81,24 @@ function App() {
     )
   }
 
-  // Chaos mode - placeholder for now, will be expanded in future features
+  // Chaos mode with TikTok-style vertical video feed
   return (
     <div className="chaos-container">
-      {/* Chaos mode content will be added in subsequent features */}
       <div className="chaos-active">
-        {/* This container will hold videos, effects, etc. */}
+        {/* Full-screen vertical video feed */}
+        <div className="video-feed">
+          <video
+            ref={videoRef}
+            className="video-player"
+            src={VIDEO_POOL[currentVideoIndex]}
+            autoPlay
+            loop
+            muted
+            playsInline
+            onCanPlay={handleVideoCanPlay}
+            data-testid="chaos-video"
+          />
+        </div>
       </div>
     </div>
   )

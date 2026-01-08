@@ -65,3 +65,32 @@
   height: 100%;
   position: relative;
 }
+
+/* TikTok-style Vertical Video Feed */
+.video-feed {
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #000000;
+  overflow: hidden;
+}
+
+.video-player {
+  /* Fill viewport while maintaining aspect ratio */
+  width: 100%;
+  height: 100%;
+  /* Cover the entire container, cropping if needed for different aspect ratios */
+  object-fit: cover;
+  /* Ensure vertical videos display properly */
+  /* 9:16 aspect ratio content will fill the screen */
+  background-color: #000000;
+  /* GPU acceleration for smooth playback */
+  transform: translateZ(0);
+  /* No controls - pure chaos mode */
+  /* Note: muted is required for autoplay on most browsers */
+}
