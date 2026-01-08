@@ -64,6 +64,12 @@ const CORRUPTION_RECTANGLE_CHANCE = 0.01 // 1% chance per frame to spawn corrupt
 const MAX_CORRUPTION_RECTANGLES = 5 // Maximum corruption rectangles on screen
 const CORRUPTION_RECTANGLE_DURATION = 300 // ms - how long corruption rectangles last
 
+// Fake UI breaking elements constants
+const FAKE_UI_START_LEVEL = 8 // Chaos level when fake UI elements begin
+const FAKE_UI_SPAWN_CHANCE = 0.02 // 2% chance per frame to spawn a fake UI element
+const MAX_FAKE_UI_ELEMENTS = 5 // Maximum fake UI elements on screen simultaneously
+const FAKE_UI_DURATION = 3000 // ms - how long fake UI elements last
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -101,6 +107,16 @@ interface VideoClone {
   vy: number // Velocity Y (percentage per frame)
   spinSpeed: number // Spin speed (degrees per frame, 0 if not spinning)
   playbackSpeed: number // Playback speed multiplier (1.0 = normal, 2.0 = 2x, 0.5 = 0.5x)
+}
+
+// Type for fake UI breaking elements
+type FakeUIType = 'error' | 'loading' | 'buffering' | 'overheating'
+
+interface FakeUIElement {
+  id: string
+  type: FakeUIType
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -175,6 +191,11 @@ function App() {
   }>>([])
   const glitchAnimationFrameRef = useRef<number | null>(null)
   const corruptionTimersRef = useRef<Map<string, number>>(new Map()) // Track corruption rectangle timers
+  
+  // Fake UI breaking elements state
+  const [fakeUIElements, setFakeUIElements] = useState<FakeUIElement[]>([])
+  const fakeUIAnimationFrameRef = useRef<number | null>(null)
+  const fakeUITimersRef = useRef<Map<string, number>>(new Map()) // Track fake UI element timers
   
   /**
    * Time-based escalation system.
@@ -722,6 +743,81 @@ function App() {
   }, [chaosStarted, chaosLevel])
   
   /**
+   * Fake UI breaking elements system.
+   * Spawns fake error popups, loading spinners, buffering indicators, and overheating warnings.
+   * Activates at chaos level 8+.
+   */
+  useEffect(() => {
+    // Only spawn fake UI elements if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < FAKE_UI_START_LEVEL) {
+      // Clear all fake UI elements if below threshold
+      setFakeUIElements([])
+      if (fakeUIAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(fakeUIAnimationFrameRef.current)
+        fakeUIAnimationFrameRef.current = null
+      }
+      // Clear all fake UI timers
+      fakeUITimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      fakeUITimersRef.current.clear()
+      return
+    }
+    
+    // Calculate level progress for spawn chance scaling (8-10 maps to 0-1)
+    const levelProgress = (chaosLevel - FAKE_UI_START_LEVEL) / (MAX_CHAOS_LEVEL - FAKE_UI_START_LEVEL)
+    
+    // Animation loop for spawning fake UI elements
+    const animateFakeUI = () => {
+      setFakeUIElements((prev) => {
+        // Spawn new fake UI element if under max limit and random chance
+        if (prev.length < MAX_FAKE_UI_ELEMENTS && 
+            Math.random() < FAKE_UI_SPAWN_CHANCE * (1 + levelProgress)) {
+          // Randomly select a fake UI type
+          const types: FakeUIType[] = ['error', 'loading', 'buffering', 'overheating']
+          const randomType = types[Math.floor(Math.random() * types.length)]
+          
+          const newElement: FakeUIElement = {
+            id: `fake-ui-${Date.now()}-${Math.random()}`,
+            type: randomType,
+            // Random position (10-90% for both axes to keep on screen)
+            x: Math.random() * 80 + 10,
+            y: Math.random() * 80 + 10,
+          }
+          
+          // Remove fake UI element after duration
+          const timerId = window.setTimeout(() => {
+            setFakeUIElements((current) => current.filter((el) => el.id !== newElement.id))
+            fakeUITimersRef.current.delete(newElement.id)
+          }, FAKE_UI_DURATION)
+          fakeUITimersRef.current.set(newElement.id, timerId)
+          
+          return [...prev, newElement]
+        }
+        return prev
+      })
+      
+      // Continue animation loop
+      fakeUIAnimationFrameRef.current = requestAnimationFrame(animateFakeUI)
+    }
+    
+    // Start animation loop
+    fakeUIAnimationFrameRef.current = requestAnimationFrame(animateFakeUI)
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (fakeUIAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(fakeUIAnimationFrameRef.current)
+        fakeUIAnimationFrameRef.current = null
+      }
+      fakeUITimersRef.current.forEach((timerId) => {
+        clearTimeout(timerId)
+      })
+      fakeUITimersRef.current.clear()
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
    * Zoom pulse effects - elements "breathe" by scaling from 1.0 to 1.1 and back.
    * Activates at chaos level 6+ with frequency increasing with chaos level.
    * Individual elements can pulse independently.
@@ -1221,6 +1317,85 @@ function App() {
             data-testid={`corruption-rect-${rect.id}`}
           />
         ))}
+        
+        {/* Fake UI breaking elements - appear at chaos level 8+ */}
+        {chaosLevel >= FAKE_UI_START_LEVEL && fakeUIElements.map((element) => {
+          if (element.type === 'error') {
+            return (
+              <div
+                key={element.id}
+                className="fake-ui-element fake-error-popup"
+                style={{
+                  position: 'absolute',
+                  left: `${element.x}%`,
+                  top: `${element.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                data-testid={`fake-ui-${element.id}`}
+              >
+                <div className="fake-error-title">ERROR</div>
+                <div className="fake-error-message">Too much brainrot</div>
+                <button className="fake-error-button">OK</button>
+              </div>
+            )
+          } else if (element.type === 'loading') {
+            return (
+              <div
+                key={element.id}
+                className="fake-ui-element fake-loading-spinner"
+                style={{
+                  position: 'absolute',
+                  left: `${element.x}%`,
+                  top: `${element.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                data-testid={`fake-ui-${element.id}`}
+              >
+                <div className="fake-loading-spinner-circle"></div>
+                <div className="fake-loading-text">Loading...</div>
+              </div>
+            )
+          } else if (element.type === 'buffering') {
+            return (
+              <div
+                key={element.id}
+                className="fake-ui-element fake-buffering-indicator"
+                style={{
+                  position: 'absolute',
+                  left: `${element.x}%`,
+                  top: `${element.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                data-testid={`fake-ui-${element.id}`}
+              >
+                <div className="fake-buffering-bar">
+                  <div className="fake-buffering-progress"></div>
+                </div>
+                <div className="fake-buffering-text">Buffering...</div>
+              </div>
+            )
+          } else if (element.type === 'overheating') {
+            return (
+              <div
+                key={element.id}
+                className="fake-ui-element fake-overheating-warning"
+                style={{
+                  position: 'absolute',
+                  left: `${element.x}%`,
+                  top: `${element.y}%`,
+                  transform: 'translate(-50%, -50%)',
+                }}
+                data-testid={`fake-ui-${element.id}`}
+              >
+                <div className="fake-warning-icon">⚠️</div>
+                <div className="fake-warning-title">Warning</div>
+                <div className="fake-warning-message">Your phone is overheating</div>
+                <button className="fake-warning-button">Dismiss</button>
+              </div>
+            )
+          }
+          return null
+        })}
         
         {/* Happy Birthday text appears at max chaos level */}
         {isMaxChaos && (

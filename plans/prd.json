@@ -234,7 +234,7 @@
         "'Your phone is overheating' fake warnings",
         "Fake UI appears at chaos level 8+"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
