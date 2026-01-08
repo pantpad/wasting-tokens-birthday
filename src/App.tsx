@@ -323,6 +323,60 @@ function App() {
     useState<string>("#000000"); // Black by default
   const bmwBackgroundFlashTimerRef = useRef<number | null>(null);
 
+  // Ref to track the initial birthday song sound
+  const initialBirthdaySoundRef = useRef<Howl | null>(null);
+
+  /**
+   * Attempts to play Happy Birthday song immediately on component mount.
+   * If autoplay is blocked by browser, it will play on first user interaction.
+   */
+  useEffect(() => {
+    // Try to play the song immediately when component mounts
+    const birthdaySongSrc = "/audios/Happy Birthday song.mp3";
+    
+    // Create the sound instance immediately
+    const sound = new Howl({
+      src: [birthdaySongSrc],
+      volume: BASE_VOLUME,
+      autoplay: true, // Try to autoplay
+    });
+
+    // Store reference for cleanup
+    initialBirthdaySoundRef.current = sound;
+
+    // Track this sound
+    const activeSound: ActiveSound = {
+      howl: sound,
+      startTime: Date.now(),
+    };
+    activeSoundsRef.current.push(activeSound);
+
+    // Auto-cleanup after playback ends
+    sound.on("end", () => {
+      // Remove from active sounds
+      activeSoundsRef.current = activeSoundsRef.current.filter(
+        (s) => s.howl !== sound
+      );
+      sound.unload();
+      initialBirthdaySoundRef.current = null;
+    });
+
+    // Try to play immediately (will fail silently if autoplay blocked)
+    // Howler handles autoplay restrictions gracefully - returns 0 if blocked
+    sound.play();
+
+    // Cleanup on unmount
+    return () => {
+      if (initialBirthdaySoundRef.current) {
+        initialBirthdaySoundRef.current.unload();
+        activeSoundsRef.current = activeSoundsRef.current.filter(
+          (s) => s.howl !== initialBirthdaySoundRef.current
+        );
+        initialBirthdaySoundRef.current = null;
+      }
+    };
+  }, []); // Run once on mount
+
   /**
    * Time-based escalation system.
    * Increments chaos level every second from 1 to 10 over 10 seconds.
@@ -1981,9 +2035,29 @@ function App() {
         applyVolumeDucking();
       });
 
+      // Ensure audio context is ready before playing
+      const playSoundNow = () => {
+        // Ensure Howler context is resumed if it was suspended
+        if (Howler.ctx && Howler.ctx.state === "suspended") {
+          Howler.ctx.resume().then(() => {
+            sound.play();
+          });
+        } else {
+          sound.play();
+        }
+      };
+
       // Load and play - Howler will load the file on first play
-      sound.load(); // Explicitly load the file
-      sound.play();
+      sound.once("load", () => {
+        playSoundNow();
+      });
+      
+      // If already loaded, play immediately
+      if (sound.state() === "loaded") {
+        playSoundNow();
+      } else {
+        sound.load();
+      }
     },
     [
       chaosStarted,
@@ -2022,41 +2096,49 @@ function App() {
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.
    * Must be called from a user interaction event.
+   * Returns a Promise that resolves when audio is ready.
    */
-  const unlockAudio = useCallback(() => {
+  const unlockAudio = useCallback(async () => {
+    // Ensure Howler is initialized and not muted
+    Howler.mute(false);
+    
     // Resume the global Howler AudioContext (iOS requirement)
-    // Howler automatically creates an AudioContext, we just need to unlock it
     if (Howler.ctx && Howler.ctx.state === "suspended") {
-      Howler.ctx.resume();
+      await Howler.ctx.resume();
     }
 
-    // Ensure Howler is ready for playback
-    // Setting mute to false and then unmuting forces initialization
-    Howler.mute(false);
+    // If the initial birthday song was blocked by autoplay, try to play it now
+    if (initialBirthdaySoundRef.current) {
+      const sound = initialBirthdaySoundRef.current;
+      // Check if sound is not playing (was blocked by autoplay)
+      if (!sound.playing()) {
+        sound.play();
+      }
+    }
   }, []);
 
   /**
    * Handles the first tap on the entry screen.
    * Unlocks audio and transitions to chaos mode.
    */
-  const handleEntryTap = useCallback(() => {
+  const handleEntryTap = useCallback(async () => {
     // Don't do anything if chaos already started
     if (chaosStarted) return;
 
-    // Unlock audio context for iOS/Safari
-    unlockAudio();
+    // Unlock audio context for iOS/Safari and wait for it to be ready
+    await unlockAudio();
+
+    // The initial birthday song should already be playing (or will start now)
+    // Only play again if it's not already playing
+    if (!initialBirthdaySoundRef.current || !initialBirthdaySoundRef.current.playing()) {
+      playHappyBirthdaySong();
+    }
 
     // Pick a random starting video
     setCurrentVideoIndex(Math.floor(Math.random() * VIDEO_POOL.length));
 
     // Transition to chaos mode
     setChaosStarted(true);
-
-    // Play Happy Birthday song instantly when chaos starts
-    // Use setTimeout to ensure audio context is fully unlocked
-    setTimeout(() => {
-      playHappyBirthdaySong();
-    }, 0);
   }, [chaosStarted, unlockAudio, playHappyBirthdaySong]);
 
   /**
