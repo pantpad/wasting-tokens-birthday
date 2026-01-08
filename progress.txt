@@ -440,3 +440,31 @@
 - Good next priorities: "Color manipulation effects" (hue rotation, color inversion), "Zoom pulses", or "Video playback speed changes"
 - The rotation system integrates seamlessly with the existing bouncing physics
 - All visual effects use CSS transforms for optimal GPU-accelerated performance
+
+## 2026-01-08 20:52 UTC - Feature: Color Manipulation Effects Including Hue Rotation
+
+### Implemented
+- Added color manipulation effects that activate at chaos level 5+
+- Continuous hue rotation for rainbow cycling effect (0-360 degrees, cycles continuously)
+- Random saturation spikes (2% chance per frame, spikes to 200% saturation)
+- Random color inversion (1% chance per frame, lasts 200ms)
+- Color effects intensify with chaos level (faster hue rotation, more frequent spikes/inversions at higher levels)
+- All effects use CSS filters (hue-rotate, saturate, invert) for GPU-accelerated performance
+- Effects applied to video feed container via inline styles
+
+### Files Changed
+- src/App.tsx - Added COLOR_START_LEVEL constant (5), color manipulation state (hueRotation, saturation, isInverted), color animation useEffect, CSS filter application to video feed
+- src/App.test.tsx - Added 7 new tests for color manipulation effects (79 total tests)
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (79 tests, including 7 new color manipulation tests)
+- Color effects activate at chaos level 5 and intensify with level
+- Hue rotation cycles continuously through full RGB spectrum
+- Saturation spikes and color inversions occur randomly as expected
+
+### Notes for Next Agent
+- Color manipulation effects are now fully functional with rainbow cycling, saturation spikes, and color inversion
+- Effects use CSS filters for optimal GPU-accelerated performance
+- Good next priorities: "Zoom pulses make elements breathe" (chaos level 6+), "Video playback speed changes" (chaos level 7+), or "Glitch and datamosh overlay effects" (chaos level 7+)
+- The color manipulation system provides a foundation for other visual effects

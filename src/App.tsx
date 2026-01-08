@@ -29,6 +29,15 @@ const ROTATION_START_LEVEL = 4 // Chaos level when rotation/spinning begins
 const MIN_SPIN_SPEED = 0.2 // Minimum spin speed (degrees per frame)
 const MAX_SPIN_SPEED = 2.0 // Maximum spin speed (degrees per frame)
 
+// Color manipulation constants
+const COLOR_START_LEVEL = 5 // Chaos level when color effects begin
+const HUE_ROTATION_MAX = 360 // Maximum hue rotation (degrees) - full spectrum
+const HUE_ROTATION_SPEED = 1 // Degrees per frame for rainbow cycling
+const SATURATION_SPIKE_CHANCE = 0.02 // 2% chance per frame for saturation spike
+const SATURATION_SPIKE_INTENSITY = 200 // Saturation percentage for spikes (200% = double saturation)
+const COLOR_INVERSION_CHANCE = 0.01 // 1% chance per frame for color inversion
+const COLOR_INVERSION_DURATION = 200 // ms - how long inversion lasts
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -108,6 +117,13 @@ function App() {
   // Screen shake state
   const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 })
   const shakeTimerRef = useRef<number | null>(null)
+  
+  // Color manipulation state
+  const [hueRotation, setHueRotation] = useState(0) // Current hue rotation in degrees
+  const [saturation, setSaturation] = useState(100) // Saturation percentage (100% = normal)
+  const [isInverted, setIsInverted] = useState(false) // Color inversion state
+  const colorAnimationFrameRef = useRef<number | null>(null)
+  const inversionTimerRef = useRef<number | null>(null)
   
   /**
    * Time-based escalation system.
@@ -371,6 +387,91 @@ function App() {
       }
     }
   }, [chaosStarted, chaosLevel])
+  
+  /**
+   * Color manipulation effects.
+   * Activates at chaos level 5+ with hue rotation, saturation spikes, and color inversion.
+   * Uses CSS filters for GPU-accelerated color effects.
+   */
+  useEffect(() => {
+    // Only apply color effects if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < COLOR_START_LEVEL) {
+      // Reset color effects if below threshold
+      setHueRotation(0)
+      setSaturation(100)
+      setIsInverted(false)
+      if (colorAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(colorAnimationFrameRef.current)
+        colorAnimationFrameRef.current = null
+      }
+      if (inversionTimerRef.current !== null) {
+        clearTimeout(inversionTimerRef.current)
+        inversionTimerRef.current = null
+      }
+      return
+    }
+    
+    // Calculate level progress for intensity scaling (5-10 maps to 0-1)
+    const levelProgress = (chaosLevel - COLOR_START_LEVEL) / (MAX_CHAOS_LEVEL - COLOR_START_LEVEL)
+    
+    // Animation loop for continuous color effects
+    const animateColors = () => {
+      // Continuous hue rotation for rainbow cycling effect
+      setHueRotation((prev) => {
+        const newHue = (prev + HUE_ROTATION_SPEED * (1 + levelProgress)) % HUE_ROTATION_MAX
+        return newHue
+      })
+      
+      // Random saturation spikes
+      if (Math.random() < SATURATION_SPIKE_CHANCE * (1 + levelProgress)) {
+        // Spike saturation to high value
+        setSaturation(SATURATION_SPIKE_INTENSITY)
+        // Return to normal after a short time
+        setTimeout(() => {
+          setSaturation(100)
+        }, 100)
+      } else {
+        // Gradually return to normal saturation if not spiking
+        setSaturation((prev) => {
+          if (prev > 100) {
+            return Math.max(100, prev - 5) // Decay back to 100%
+          }
+          return 100
+        })
+      }
+      
+      // Random color inversion
+      if (!isInverted && Math.random() < COLOR_INVERSION_CHANCE * (1 + levelProgress)) {
+        setIsInverted(true)
+        // Clear any existing inversion timer
+        if (inversionTimerRef.current !== null) {
+          clearTimeout(inversionTimerRef.current)
+        }
+        // Reset inversion after duration
+        inversionTimerRef.current = window.setTimeout(() => {
+          setIsInverted(false)
+        }, COLOR_INVERSION_DURATION)
+      }
+      
+      // Continue animation loop
+      colorAnimationFrameRef.current = requestAnimationFrame(animateColors)
+    }
+    
+    // Start animation loop
+    colorAnimationFrameRef.current = requestAnimationFrame(animateColors)
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (colorAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(colorAnimationFrameRef.current)
+        colorAnimationFrameRef.current = null
+      }
+      if (inversionTimerRef.current !== null) {
+        clearTimeout(inversionTimerRef.current)
+        inversionTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel, isInverted])
   
   /**
    * Removes a sound from the active sounds tracking array.
@@ -639,7 +740,17 @@ function App() {
         data-testid="chaos-content"
       >
         {/* Full-screen vertical video feed with clones */}
-        <div className="video-feed">
+        <div 
+          className="video-feed"
+          style={{
+            filter: `
+              hue-rotate(${hueRotation}deg)
+              saturate(${saturation}%)
+              ${isInverted ? 'invert(1)' : 'invert(0)'}
+            `.trim(),
+          }}
+          data-testid="video-feed"
+        >
           {/* Base video (always rendered) */}
           <video
             ref={(el) => {

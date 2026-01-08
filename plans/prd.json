@@ -186,7 +186,7 @@
         "Color effects activate at chaos level 5+",
         "Full RGB spectrum used for chaos colors"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",

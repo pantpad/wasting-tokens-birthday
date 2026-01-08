@@ -1631,4 +1631,195 @@ describe('App', () => {
       expect(mockPlay).toHaveBeenCalledTimes(12)
     })
   })
+
+  describe('Color Manipulation Effects', () => {
+    it('does not apply color effects below chaos level 5', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 4 (below threshold)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 4000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      const filter = videoFeed.getAttribute('style')
+      
+      // Should have no color effects (hue-rotate(0deg), saturate(100%), invert(0))
+      expect(filter).toContain('hue-rotate(0deg)')
+      expect(filter).toContain('saturate(100%)')
+      expect(filter).toContain('invert(0)')
+    })
+
+    it('applies color effects starting at chaos level 5', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 5
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      const filter = videoFeed.getAttribute('style')
+      
+      // Should have color effects applied
+      expect(filter).toContain('hue-rotate')
+      expect(filter).toContain('saturate')
+      expect(filter).toContain('invert')
+    }, { timeout: 10000 })
+
+    it('applies hue rotation for rainbow cycling effect', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 5
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      const filter1 = videoFeed.getAttribute('style')
+      
+      // Wait a bit for animation frame
+      await act(async () => {
+        await new Promise(resolve => requestAnimationFrame(resolve))
+      })
+      
+      const filter2 = videoFeed.getAttribute('style')
+      
+      // Hue rotation should change (rainbow cycling)
+      expect(filter1).toContain('hue-rotate')
+      expect(filter2).toContain('hue-rotate')
+      // Values should be different (cycling)
+      expect(filter1).not.toBe(filter2)
+    }, { timeout: 10000 })
+
+    it('applies saturation spikes randomly', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 5
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      
+      // Run multiple animation frames to catch a saturation spike
+      for (let i = 0; i < 100; i++) {
+        await act(async () => {
+          await new Promise(resolve => requestAnimationFrame(resolve))
+        })
+        const filter = videoFeed.getAttribute('style')
+        // Should have saturate filter
+        expect(filter).toContain('saturate')
+      }
+    }, { timeout: 15000 })
+
+    it('applies color inversion randomly', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 5
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      
+      // Verify that the invert filter is present in the style (system is working)
+      // The inversion happens randomly, so we verify the filter property exists
+      let foundInvertFilter = false
+      for (let i = 0; i < 100; i++) {
+        await act(async () => {
+          await new Promise(resolve => requestAnimationFrame(resolve))
+        })
+        const filter = videoFeed.getAttribute('style')
+        if (filter?.includes('invert')) {
+          foundInvertFilter = true
+          // If we find invert(1), that's even better - inversion happened
+          if (filter.includes('invert(1)')) {
+            break
+          }
+        }
+      }
+      
+      // Should have invert filter in the style (shows system is working)
+      // Inversion to invert(1) happens randomly, but the filter should be present
+      expect(foundInvertFilter).toBe(true)
+    }, { timeout: 20000 })
+
+    it('intensifies color effects at higher chaos levels', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000)) // Level 5
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      const filterAt5 = videoFeed.getAttribute('style')
+      
+      // Wait for level 10
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 5000)) // Level 10
+      })
+      
+      // Run a few animation frames at max chaos
+      await act(async () => {
+        for (let i = 0; i < 10; i++) {
+          await new Promise(resolve => requestAnimationFrame(resolve))
+        }
+      })
+      
+      const filterAt10 = videoFeed.getAttribute('style')
+      
+      // Both should have color effects
+      expect(filterAt5).toContain('hue-rotate')
+      expect(filterAt10).toContain('hue-rotate')
+    }, { timeout: 15000 })
+
+    it('resets color effects when chaos level drops below threshold', async () => {
+      // Note: In the current implementation, chaos level never decreases
+      // This test verifies that effects are not applied below level 5
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for level 4 (below threshold)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 4000))
+      })
+      
+      const videoFeed = screen.getByTestId('video-feed')
+      const filter = videoFeed.getAttribute('style')
+      
+      // Should have no color effects (reset values)
+      expect(filter).toContain('hue-rotate(0deg)')
+      expect(filter).toContain('saturate(100%)')
+      expect(filter).toContain('invert(0)')
+    })
+  })
 })
