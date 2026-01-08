@@ -458,3 +458,61 @@
   transition: transform 0.1s linear;
   white-space: nowrap;
 }
+
+/* BMW bouncing images - appear at chaos level 3+ */
+.bmw-image {
+  pointer-events: none;
+  z-index: 50;
+  /* GPU acceleration for smooth movement */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Smooth transitions */
+  transition: transform 0.1s linear;
+  /* Max size constraint */
+  max-width: 200px;
+  max-height: 200px;
+  width: auto;
+  height: auto;
+}
+
+/* BMW text overlays - appear at chaos level 5+ */
+.bmw-text-overlay {
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  color: #0066B1; /* BMW Blue */
+  pointer-events: none;
+  z-index: 152; /* Above meme and birthday text */
+  /* Text shadow for visibility */
+  text-shadow: 
+    2px 2px 0 #ffffff,
+    -2px -2px 0 #ffffff,
+    2px -2px 0 #ffffff,
+    -2px 2px 0 #ffffff,
+    0 0 10px rgba(0, 102, 177, 0.8);
+  /* GPU acceleration for smooth movement */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Smooth transitions */
+  transition: transform 0.1s linear;
+  white-space: nowrap;
+}
+
+/* BMW logo watermarks - appear at chaos level 7+ */
+.bmw-logo-watermark {
+  pointer-events: none;
+  z-index: 60;
+  /* GPU acceleration for smooth movement */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Smooth transitions */
+  transition: transform 0.1s linear;
+  /* Max size constraint for watermarks */
+  max-width: 100px;
+  max-height: 100px;
+  width: auto;
+  height: auto;
+}

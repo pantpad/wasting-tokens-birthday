@@ -98,6 +98,22 @@ const BIRTHDAY_TEXT_SPEED_MAX = 0.15 // % per frame - maximum movement speed (sl
 const BIRTHDAY_TEXT_MIN_SIZE = 2.5 // rem - minimum font size (larger than meme text)
 const BIRTHDAY_TEXT_MAX_SIZE = 4.5 // rem - maximum font size (larger than meme text)
 
+// BMW integration constants
+const BMW_START_LEVEL = 3 // Chaos level when BMW images start bouncing (level 3+)
+const BMW_TEXT_START_LEVEL = 5 // Chaos level when BMW text overlays appear (level 5+)
+const BMW_LOGO_START_LEVEL = 7 // Chaos level when BMW logo watermarks multiply (level 7+)
+const BMW_BACKGROUND_START_LEVEL = 10 // Chaos level when background flashes BMW aesthetic (level 10)
+const MAX_BMW_IMAGES = 8 // Maximum BMW images bouncing simultaneously
+const MAX_BMW_TEXTS = 10 // Maximum BMW text overlays on screen
+const MAX_BMW_LOGOS = 15 // Maximum BMW logo watermarks on screen
+const BMW_BLUE = '#0066B1' // BMW Blue accent color
+const BMW_TEXT_PHRASES = ['BMW GRINDSET', 'WHITE BMW ENERGY', 'M POWER'] // BMW text phrases
+const BMW_TEXT_MIN_SIZE = 1.8 // rem - minimum font size for BMW text
+const BMW_TEXT_MAX_SIZE = 3.5 // rem - maximum font size for BMW text
+const BMW_TEXT_SPEED_MIN = 0.04 // % per frame - minimum movement speed
+const BMW_TEXT_SPEED_MAX = 0.2 // % per frame - maximum movement speed
+const BMW_BACKGROUND_FLASH_INTERVAL = 300 // ms - background flash interval at max chaos
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -160,6 +176,41 @@ interface FloatingText {
   vx: number // Velocity X (percentage per frame)
   vy: number // Velocity Y (percentage per frame)
   createdAt: number // Timestamp for tracking oldest elements
+}
+
+// Type for BMW bouncing images
+interface BMWImage {
+  id: string
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
+  rotation: number // Rotation in degrees
+  scale: number // Scale factor
+  vx: number // Velocity X (percentage per frame)
+  vy: number // Velocity Y (percentage per frame)
+  spinSpeed: number // Spin speed (degrees per frame, 0 if not spinning)
+}
+
+// Type for BMW text overlays
+interface BMWText {
+  id: string
+  text: string
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
+  rotation: number // Rotation in degrees
+  size: number // Font size in rem
+  vx: number // Velocity X (percentage per frame)
+  vy: number // Velocity Y (percentage per frame)
+  createdAt: number // Timestamp for tracking oldest elements
+}
+
+// Type for BMW logo watermarks
+interface BMWLogo {
+  id: string
+  x: number // Position X (percentage)
+  y: number // Position Y (percentage)
+  rotation: number // Rotation in degrees
+  scale: number // Scale factor
+  opacity: number // Opacity (0-1)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -251,6 +302,19 @@ function App() {
   const birthdayTextAnimationFrameRef = useRef<number | null>(null)
   const birthdayTextSpawnTimerRef = useRef<number | null>(null)
   const birthdayTextCounterRef = useRef<number>(0) // Counter for unique IDs
+  
+  // BMW integration state
+  const [bmwImages, setBmwImages] = useState<BMWImage[]>([])
+  const bmwImagesRef = useRef<BMWImage[]>([]) // Ref for animation loop
+  const bmwImagesAnimationFrameRef = useRef<number | null>(null)
+  const [bmwTexts, setBmwTexts] = useState<BMWText[]>([])
+  const bmwTextAnimationFrameRef = useRef<number | null>(null)
+  const bmwTextSpawnTimerRef = useRef<number | null>(null)
+  const bmwTextCounterRef = useRef<number>(0)
+  const [bmwLogos, setBmwLogos] = useState<BMWLogo[]>([])
+  const bmwLogoAnimationFrameRef = useRef<number | null>(null)
+  const [bmwBackgroundColor, setBmwBackgroundColor] = useState<string>('#000000') // Black by default
+  const bmwBackgroundFlashTimerRef = useRef<number | null>(null)
   
   /**
    * Time-based escalation system.
@@ -1045,6 +1109,360 @@ function App() {
   }, [chaosStarted, chaosLevel])
   
   /**
+   * BMW bouncing images system.
+   * White BMW images start bouncing around at chaos level 3+.
+   * Uses DVD screensaver-style physics similar to video clones.
+   */
+  useEffect(() => {
+    // Only spawn BMW images if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < BMW_START_LEVEL) {
+      setBmwImages([])
+      bmwImagesRef.current = []
+      if (bmwImagesAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwImagesAnimationFrameRef.current)
+        bmwImagesAnimationFrameRef.current = null
+      }
+      return
+    }
+    
+    // Calculate number of BMW images based on chaos level (3-10)
+    const bmwLevelProgress = (chaosLevel - BMW_START_LEVEL) / (MAX_CHAOS_LEVEL - BMW_START_LEVEL)
+    const imageCount = Math.floor(2 + bmwLevelProgress * (MAX_BMW_IMAGES - 2)) // 2-8 images
+    
+    // Generate BMW images if we don't have enough
+    if (bmwImages.length < imageCount) {
+      const newImages: BMWImage[] = []
+      for (let i = bmwImages.length; i < imageCount; i++) {
+        // Calculate velocity based on chaos level
+        const velocity = BASE_VELOCITY + bmwLevelProgress * (MAX_VELOCITY - BASE_VELOCITY)
+        const angle = Math.random() * Math.PI * 2
+        const vx = Math.cos(angle) * velocity
+        const vy = Math.sin(angle) * velocity
+        
+        // Calculate spin speed if rotation is active (chaos level 4+)
+        let spinSpeed = 0
+        if (chaosLevel >= ROTATION_START_LEVEL) {
+          if (Math.random() < 0.6) { // 60% chance to spin
+            const spinLevelProgress = (chaosLevel - ROTATION_START_LEVEL) / (MAX_CHAOS_LEVEL - ROTATION_START_LEVEL)
+            const baseSpinSpeed = MIN_SPIN_SPEED + Math.random() * (MAX_SPIN_SPEED - MIN_SPIN_SPEED)
+            spinSpeed = baseSpinSpeed * (1 + spinLevelProgress)
+            if (Math.random() < 0.5) {
+              spinSpeed = -spinSpeed
+            }
+          }
+        }
+        
+        newImages.push({
+          id: `bmw-image-${Date.now()}-${i}-${Math.random()}`,
+          x: Math.random() * 80 + 10, // 10-90%
+          y: Math.random() * 80 + 10, // 10-90%
+          rotation: (Math.random() - 0.5) * 360,
+          scale: 0.3 + Math.random() * 0.4, // 0.3-0.7 scale (smaller than videos)
+          vx,
+          vy,
+          spinSpeed,
+        })
+      }
+      setBmwImages((prev) => [...prev, ...newImages])
+      bmwImagesRef.current = [...bmwImages, ...newImages]
+    } else if (bmwImages.length > imageCount) {
+      // Remove excess images
+      const toRemove = bmwImages.length - imageCount
+      setBmwImages((prev) => prev.slice(toRemove))
+      bmwImagesRef.current = bmwImages.slice(toRemove)
+    }
+    
+    // Animation loop for bouncing BMW images
+    const shouldAnimate = chaosStarted && chaosLevel >= BMW_START_LEVEL
+    if (!shouldAnimate) {
+      if (bmwImagesAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwImagesAnimationFrameRef.current)
+        bmwImagesAnimationFrameRef.current = null
+      }
+      return
+    }
+    
+    const levelProgress = (chaosLevel - BOUNCE_START_LEVEL) / (MAX_CHAOS_LEVEL - BOUNCE_START_LEVEL)
+    const velocityScale = 1 + levelProgress
+    
+    const animate = () => {
+      setBmwImages((prev) => {
+        const updated = prev.map((img) => {
+          let { x, y, vx, vy, rotation, spinSpeed } = img
+          
+          // Random velocity changes
+          if (Math.random() < VELOCITY_CHANGE_CHANCE) {
+            vx += (Math.random() - 0.5) * VELOCITY_CHANGE_MAGNITUDE * velocityScale
+            vy += (Math.random() - 0.5) * VELOCITY_CHANGE_MAGNITUDE * velocityScale
+          }
+          
+          const scaledVx = vx * velocityScale
+          const scaledVy = vy * velocityScale
+          
+          x += scaledVx
+          y += scaledVy
+          
+          if (spinSpeed !== 0) {
+            rotation += spinSpeed
+            rotation = rotation % 360
+          }
+          
+          // Edge collisions
+          const margin = 5
+          if (x < -margin) {
+            x = -margin
+            vx = Math.abs(vx)
+          } else if (x > 100 + margin) {
+            x = 100 + margin
+            vx = -Math.abs(vx)
+          }
+          
+          if (y < -margin) {
+            y = -margin
+            vy = Math.abs(vy)
+          } else if (y > 100 + margin) {
+            y = 100 + margin
+            vy = -Math.abs(vy)
+          }
+          
+          return { ...img, x, y, vx, vy, rotation }
+        })
+        
+        bmwImagesRef.current = updated
+        return updated
+      })
+      
+      bmwImagesAnimationFrameRef.current = requestAnimationFrame(animate)
+    }
+    
+    bmwImagesAnimationFrameRef.current = requestAnimationFrame(animate)
+    
+    return () => {
+      if (bmwImagesAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwImagesAnimationFrameRef.current)
+        bmwImagesAnimationFrameRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel, bmwImages.length])
+  
+  /**
+   * BMW text overlays system.
+   * Text overlays ('BMW GRINDSET', 'WHITE BMW ENERGY', 'M POWER') appear at chaos level 5+.
+   * Similar to floating meme text but with BMW-specific styling.
+   */
+  useEffect(() => {
+    if (!chaosStarted || chaosLevel < BMW_TEXT_START_LEVEL) {
+      setBmwTexts([])
+      if (bmwTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwTextAnimationFrameRef.current)
+        bmwTextAnimationFrameRef.current = null
+      }
+      if (bmwTextSpawnTimerRef.current !== null) {
+        clearTimeout(bmwTextSpawnTimerRef.current)
+        bmwTextSpawnTimerRef.current = null
+      }
+      return
+    }
+    
+    const bmwTextLevelProgress = (chaosLevel - BMW_TEXT_START_LEVEL) / (MAX_CHAOS_LEVEL - BMW_TEXT_START_LEVEL)
+    const spawnInterval = 1000 - bmwTextLevelProgress * 500 // 1000ms at level 5, 500ms at level 10
+    
+    const spawnBmwText = () => {
+      setBmwTexts((prev) => {
+        let updated = prev
+        if (prev.length >= MAX_BMW_TEXTS) {
+          const sorted = [...prev].sort((a, b) => a.createdAt - b.createdAt)
+          const oldest = sorted[0]
+          if (oldest) {
+            updated = prev.filter((text) => text.id !== oldest.id)
+          }
+        }
+        
+        const spawnEdge = Math.floor(Math.random() * 4)
+        let startX = 0
+        let startY = 0
+        
+        if (spawnEdge === 0) {
+          startX = Math.random() * 100
+          startY = -10
+        } else if (spawnEdge === 1) {
+          startX = 110
+          startY = Math.random() * 100
+        } else if (spawnEdge === 2) {
+          startX = Math.random() * 100
+          startY = 110
+        } else {
+          startX = -10
+          startY = Math.random() * 100
+        }
+        
+        const targetX = Math.random() * 100
+        const targetY = Math.random() * 100
+        const dx = targetX - startX
+        const dy = targetY - startY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        const speed = BMW_TEXT_SPEED_MIN + Math.random() * (BMW_TEXT_SPEED_MAX - BMW_TEXT_SPEED_MIN)
+        const vx = (dx / distance) * speed
+        const vy = (dy / distance) * speed
+        
+        const randomPhrase = BMW_TEXT_PHRASES[Math.floor(Math.random() * BMW_TEXT_PHRASES.length)]
+        const rotation = (Math.random() - 0.5) * 60
+        const size = BMW_TEXT_MIN_SIZE + Math.random() * (BMW_TEXT_MAX_SIZE - BMW_TEXT_MIN_SIZE)
+        
+        bmwTextCounterRef.current += 1
+        const now = Date.now()
+        const newText: BMWText = {
+          id: `bmw-text-${now}-${bmwTextCounterRef.current}-${Math.random()}`,
+          text: randomPhrase,
+          x: startX,
+          y: startY,
+          rotation,
+          size,
+          vx,
+          vy,
+          createdAt: now,
+        }
+        
+        return [...updated, newText]
+      })
+    }
+    
+    const animateBmwTexts = () => {
+      setBmwTexts((prev) => {
+        return prev
+          .map((text) => {
+            let newX = text.x + text.vx
+            let newY = text.y + text.vy
+            
+            if (newX < -20 || newX > 120 || newY < -20 || newY > 120) {
+              return null
+            }
+            
+            return { ...text, x: newX, y: newY }
+          })
+          .filter((text): text is BMWText => text !== null)
+      })
+      
+      bmwTextAnimationFrameRef.current = requestAnimationFrame(animateBmwTexts)
+    }
+    
+    bmwTextAnimationFrameRef.current = requestAnimationFrame(animateBmwTexts)
+    
+    const scheduleNextSpawn = () => {
+      bmwTextSpawnTimerRef.current = window.setTimeout(() => {
+        spawnBmwText()
+        scheduleNextSpawn()
+      }, spawnInterval)
+    }
+    
+    spawnBmwText()
+    scheduleNextSpawn()
+    
+    return () => {
+      if (bmwTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwTextAnimationFrameRef.current)
+        bmwTextAnimationFrameRef.current = null
+      }
+      if (bmwTextSpawnTimerRef.current !== null) {
+        clearTimeout(bmwTextSpawnTimerRef.current)
+        bmwTextSpawnTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
+   * BMW logo watermarks system.
+   * BMW logo watermarks multiply at chaos level 7+.
+   * Smaller watermarks that appear across the screen.
+   */
+  useEffect(() => {
+    if (!chaosStarted || chaosLevel < BMW_LOGO_START_LEVEL) {
+      setBmwLogos([])
+      if (bmwLogoAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwLogoAnimationFrameRef.current)
+        bmwLogoAnimationFrameRef.current = null
+      }
+      return
+    }
+    
+    const bmwLogoLevelProgress = (chaosLevel - BMW_LOGO_START_LEVEL) / (MAX_CHAOS_LEVEL - BMW_LOGO_START_LEVEL)
+    const logoCount = Math.floor(3 + bmwLogoLevelProgress * (MAX_BMW_LOGOS - 3)) // 3-15 logos
+    
+    // Generate logos if needed
+    if (bmwLogos.length < logoCount) {
+      const newLogos: BMWLogo[] = []
+      for (let i = bmwLogos.length; i < logoCount; i++) {
+        newLogos.push({
+          id: `bmw-logo-${Date.now()}-${i}-${Math.random()}`,
+          x: Math.random() * 100,
+          y: Math.random() * 100,
+          rotation: (Math.random() - 0.5) * 360,
+          scale: 0.1 + Math.random() * 0.2, // 0.1-0.3 scale (small watermarks)
+          opacity: 0.3 + Math.random() * 0.4, // 0.3-0.7 opacity
+        })
+      }
+      setBmwLogos((prev) => [...prev, ...newLogos])
+    } else if (bmwLogos.length > logoCount) {
+      setBmwLogos((prev) => prev.slice(0, logoCount))
+    }
+    
+    // Subtle animation for logos (slow rotation)
+    const animate = () => {
+      setBmwLogos((prev) => {
+        return prev.map((logo) => ({
+          ...logo,
+          rotation: (logo.rotation + 0.1) % 360, // Slow rotation
+        }))
+      })
+      
+      bmwLogoAnimationFrameRef.current = requestAnimationFrame(animate)
+    }
+    
+    bmwLogoAnimationFrameRef.current = requestAnimationFrame(animate)
+    
+    return () => {
+      if (bmwLogoAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(bmwLogoAnimationFrameRef.current)
+        bmwLogoAnimationFrameRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel, bmwLogos.length])
+  
+  /**
+   * BMW background color flashing.
+   * Background flashes BMW dealership aesthetic (white/blue) at chaos level 10.
+   */
+  useEffect(() => {
+    if (!chaosStarted || chaosLevel < BMW_BACKGROUND_START_LEVEL) {
+      setBmwBackgroundColor('#000000')
+      if (bmwBackgroundFlashTimerRef.current !== null) {
+        clearInterval(bmwBackgroundFlashTimerRef.current)
+        bmwBackgroundFlashTimerRef.current = null
+      }
+      return
+    }
+    
+    let isWhite = false
+    const flash = () => {
+      isWhite = !isWhite
+      setBmwBackgroundColor(isWhite ? '#FFFFFF' : BMW_BLUE)
+    }
+    
+    // Initial flash
+    flash()
+    
+    // Set up interval for flashing
+    bmwBackgroundFlashTimerRef.current = window.setInterval(flash, BMW_BACKGROUND_FLASH_INTERVAL)
+    
+    return () => {
+      if (bmwBackgroundFlashTimerRef.current !== null) {
+        clearInterval(bmwBackgroundFlashTimerRef.current)
+        bmwBackgroundFlashTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
    * Floating meme text system.
    * Spawns meme phrases (SKIBIDI, OHIO, SIGMA, RIZZ, GYATT) that float across screen.
    * Activates at chaos level 9+ with random trajectories, sizes, rotations, and colors.
@@ -1589,6 +2007,9 @@ function App() {
       onPointerMove={handlePointerMove}
       data-testid="chaos-container"
       data-chaos-level={chaosLevel}
+      style={{
+        backgroundColor: bmwBackgroundColor,
+      }}
     >
       <div 
         className="chaos-active"
@@ -1844,6 +2265,69 @@ function App() {
           >
             {text.text}
           </div>
+        ))}
+        
+        {/* BMW bouncing images - appear at chaos level 3+ */}
+        {chaosLevel >= BMW_START_LEVEL && bmwImages.map((img) => (
+          <img
+            key={img.id}
+            src={IMAGE_POOL.bmwWhite}
+            alt="BMW"
+            className="bmw-image"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              transform: `translate(calc(${img.x}% - 50%), calc(${img.y}% - 50%)) rotate(${img.rotation}deg) scale(${img.scale})`,
+              transformOrigin: 'center center',
+            }}
+            data-testid={`bmw-image-${img.id}`}
+            onError={(e) => {
+              // Hide image if it fails to load (image file doesn't exist yet)
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        ))}
+        
+        {/* BMW text overlays - appear at chaos level 5+ */}
+        {chaosLevel >= BMW_TEXT_START_LEVEL && bmwTexts.map((text) => (
+          <div
+            key={text.id}
+            className="bmw-text-overlay"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              transform: `translate(calc(${text.x}% - 50%), calc(${text.y}% - 50%)) rotate(${text.rotation}deg)`,
+              fontSize: `${text.size}rem`,
+            }}
+            data-testid={`bmw-text-${text.id}`}
+          >
+            {text.text}
+          </div>
+        ))}
+        
+        {/* BMW logo watermarks - appear at chaos level 7+ */}
+        {chaosLevel >= BMW_LOGO_START_LEVEL && bmwLogos.map((logo) => (
+          <img
+            key={logo.id}
+            src={IMAGE_POOL.bmwLogo}
+            alt="BMW Logo"
+            className="bmw-logo-watermark"
+            style={{
+              position: 'absolute',
+              left: `${logo.x}%`,
+              top: `${logo.y}%`,
+              transform: `translate(-50%, -50%) rotate(${logo.rotation}deg) scale(${logo.scale})`,
+              transformOrigin: 'center center',
+              opacity: logo.opacity,
+            }}
+            data-testid={`bmw-logo-${logo.id}`}
+            onError={(e) => {
+              // Hide logo if it fails to load (image file doesn't exist yet)
+              e.currentTarget.style.display = 'none'
+            }}
+          />
         ))}
       </div>
     </div>

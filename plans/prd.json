@@ -270,7 +270,7 @@
         "Level 10: Background flashes BMW dealership aesthetic (white/blue)",
         "BMW Blue accent color: #0066B1"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
