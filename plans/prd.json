@@ -13,7 +13,7 @@
         "Set up proper meta viewport for mobile (no pinch zoom)",
         "Verify pnpm dev starts without errors"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "setup",

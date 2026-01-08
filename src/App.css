@@ -1,0 +1,21 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  background-color: #000000;
+  color: #ffffff;
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  text-align: center;
+  padding: 1rem;
+}
+
+.app h1 {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.app p {
+  font-size: 1.5rem;
+}
