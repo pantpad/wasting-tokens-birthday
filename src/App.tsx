@@ -346,7 +346,8 @@ function App() {
     const sound = new Howl({
       src: [birthdaySongSrc],
       volume: BASE_VOLUME,
-      html5: false, // Use Web Audio API for better mobile support
+      html5: false, // Use Web Audio API for better mobile support (required for iOS)
+      preload: true, // Preload audio for better iOS compatibility
     });
 
     // Store reference for later playback
@@ -1986,14 +1987,39 @@ function App() {
       // Only play sounds after chaos has started (unless explicitly allowed)
       if (requireChaosStarted && !chaosStarted) return;
 
-      // Ensure audio context is unlocked first (CRITICAL for mobile)
-      if (Howler.ctx && Howler.ctx.state === "suspended") {
+      // Ensure audio context is unlocked first (CRITICAL for mobile/iOS)
+      // iOS requires context to be running before any audio playback
+      if (!Howler.ctx) {
+        console.warn("Audio context not initialized, attempting to create...");
+        // Try to create context by creating a temporary sound
         try {
-          await Howler.ctx.resume();
+          const tempSound = new Howl({
+            src: [
+              "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBTGH0fPTgjMGHm7A7+OZURE=",
+            ],
+            volume: 0,
+            html5: false,
+          });
+          tempSound.play();
+          tempSound.stop();
+          tempSound.unload();
         } catch (e) {
-          console.warn("Failed to resume audio context:", e);
-          return; // Can't play without audio context
+          console.warn("Failed to create audio context:", e);
         }
+      }
+
+      if (Howler.ctx) {
+        if (Howler.ctx.state === "suspended") {
+          try {
+            await Howler.ctx.resume();
+            console.log("Audio context resumed in playSound");
+          } catch (e) {
+            console.warn("Failed to resume audio context:", e);
+            return; // Can't play without audio context
+          }
+        }
+      } else {
+        console.warn("Audio context still not available, playback may fail");
       }
 
       // Check if we're at the maximum limit
@@ -2011,7 +2037,8 @@ function App() {
       const sound = new Howl({
         src: [audioSrc],
         volume: initialVolume,
-        html5: false, // Use Web Audio API for better mobile support
+        html5: false, // Use Web Audio API for better mobile support (required for iOS)
+        preload: true, // Preload audio for better iOS compatibility
       });
 
       // Track this sound
@@ -2126,28 +2153,54 @@ function App() {
   const unlockAudio = useCallback(async () => {
     // Ensure Howler is initialized and not muted
     Howler.mute(false);
+    // Set global volume to 1.0 (iOS may default to 0 or muted)
+    Howler.volume(1.0);
 
-    // Resume the global Howler AudioContext (iOS requirement)
-    // This is CRITICAL for mobile browsers
-    if (Howler.ctx) {
-      if (Howler.ctx.state === "suspended") {
-        try {
-          await Howler.ctx.resume();
-          console.log("Audio context resumed successfully");
-        } catch (e) {
-          console.error("Failed to resume audio context:", e);
-          // Don't throw - try to continue anyway
-        }
+    // Create or resume the global Howler AudioContext (iOS requirement)
+    // This is CRITICAL for mobile browsers - iOS requires context creation/resume
+    // to happen synchronously within user interaction handler
+    try {
+      // Force Howler to create the context if it doesn't exist
+      // iOS requires context creation to happen synchronously in user interaction
+      // Howler will create the context when we create the first sound instance
+      // We'll trigger this by ensuring the initial birthday sound exists
+      if (!Howler.ctx && initialBirthdaySoundRef.current) {
+        // The sound instance already exists, which should have created the context
+        // If not, Howler will create it when we call play() below
       }
-    } else {
-      // If context doesn't exist yet, Howler will create it on first sound play
-      console.log("Audio context will be created on first sound play");
+
+      // Now resume the context if it exists and is suspended
+      // iOS requires this to be called synchronously in user interaction
+      if (Howler.ctx) {
+        if (Howler.ctx.state === "suspended") {
+          const resumePromise = Howler.ctx.resume();
+          await resumePromise;
+          console.log(
+            "Audio context resumed successfully, state:",
+            Howler.ctx.state
+          );
+        } else if (Howler.ctx.state === "running") {
+          console.log("Audio context already running");
+        }
+      } else {
+        console.log("Audio context will be created on first sound play");
+      }
+    } catch (e) {
+      console.error("Failed to unlock audio context:", e);
+      // Don't throw - try to continue anyway
     }
 
     // Play the initial birthday song now that context is unlocked
+    // iOS requires this to happen synchronously in the user interaction handler
     if (initialBirthdaySoundRef.current) {
       const sound = initialBirthdaySoundRef.current;
       try {
+        // Ensure context is running before playing (critical for iOS)
+        if (Howler.ctx && Howler.ctx.state === "suspended") {
+          // This should have been handled above, but double-check
+          await Howler.ctx.resume();
+        }
+
         // Track this sound
         const activeSound: ActiveSound = {
           howl: sound,
@@ -2162,12 +2215,27 @@ function App() {
           initialBirthdaySoundRef.current = null;
         });
 
-        // Play the sound
+        // Play the sound immediately (iOS requires this in user interaction)
         const playId = sound.play();
         if (playId === 0) {
           // Sound not loaded yet, wait for load
           sound.once("load", () => {
-            sound.play();
+            // Ensure context is still running when sound loads
+            if (Howler.ctx && Howler.ctx.state === "suspended") {
+              Howler.ctx
+                .resume()
+                .then(() => {
+                  sound.play();
+                })
+                .catch((e) => {
+                  console.warn(
+                    "Failed to resume context for birthday song:",
+                    e
+                  );
+                });
+            } else {
+              sound.play();
+            }
           });
           sound.load();
         }
