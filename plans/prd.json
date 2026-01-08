@@ -97,7 +97,7 @@
         "Oldest sounds fade out when limit reached",
         "No audio blowout on rapid interactions"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

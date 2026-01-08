@@ -6,16 +6,38 @@ import App from './App'
 const mockPlay = vi.fn()
 const mockUnload = vi.fn()
 const mockOn = vi.fn()
-const mockHowlInstances: { src: string[] }[] = []
+const mockVolume = vi.fn()
+const mockFade = vi.fn()
+
+interface MockHowlInstance {
+  src: string[]
+  currentVolume: number
+  play: typeof mockPlay
+  unload: typeof mockUnload
+  on: typeof mockOn
+  volume: (v?: number) => number
+  fade: typeof mockFade
+}
+
+const mockHowlInstances: MockHowlInstance[] = []
 
 // Mock Howler to avoid audio context issues in tests
 vi.mock('howler', () => ({
-  Howl: vi.fn().mockImplementation((options: { src: string[] }) => {
-    const instance = { 
+  Howl: vi.fn().mockImplementation((options: { src: string[]; volume?: number }) => {
+    const instance: MockHowlInstance = { 
       src: options.src, 
+      currentVolume: options.volume ?? 0.5,
       play: mockPlay, 
       unload: mockUnload,
       on: mockOn,
+      volume: function(v?: number) {
+        if (v !== undefined) {
+          this.currentVolume = v
+          mockVolume(v)
+        }
+        return this.currentVolume
+      },
+      fade: mockFade,
     }
     mockHowlInstances.push(instance)
     return instance
@@ -32,6 +54,8 @@ describe('App', () => {
     mockPlay.mockClear()
     mockUnload.mockClear()
     mockOn.mockClear()
+    mockVolume.mockClear()
+    mockFade.mockClear()
     mockHowlInstances.length = 0
   })
 
@@ -453,6 +477,125 @@ describe('App', () => {
       // Verify Howl instances were created with audio from pool
       expect(mockHowlInstances.length).toBe(1)
       expect(mockHowlInstances[0].src[0]).toMatch(/\/audios\/.*\.mp3$/)
+    })
+  })
+
+  describe('Audio Limiting System', () => {
+    it('allows up to 8 simultaneous sounds', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockPlay.mockClear()
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Trigger 8 sounds
+      for (let i = 0; i < 8; i++) {
+        fireEvent.click(chaosContainer)
+      }
+      
+      // Should have created 8 instances
+      expect(mockHowlInstances.length).toBe(8)
+      expect(mockPlay).toHaveBeenCalledTimes(8)
+    })
+
+    it('fades out oldest sound when max limit reached', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockPlay.mockClear()
+      mockFade.mockClear()
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Trigger 8 sounds to reach the limit
+      for (let i = 0; i < 8; i++) {
+        fireEvent.click(chaosContainer)
+      }
+      
+      // Trigger 9th sound - should cause fadeout of oldest
+      fireEvent.click(chaosContainer)
+      
+      // Fade should have been called on the oldest sound
+      expect(mockFade).toHaveBeenCalled()
+    })
+
+    it('applies volume ducking when approaching limit (5+ sounds)', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockVolume.mockClear()
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Trigger 5 sounds (DUCKING_THRESHOLD)
+      for (let i = 0; i < 5; i++) {
+        fireEvent.click(chaosContainer)
+      }
+      
+      // Volume should have been adjusted (ducking applied)
+      expect(mockVolume).toHaveBeenCalled()
+      
+      // The last sound should have been created with ducked volume
+      const lastInstance = mockHowlInstances[mockHowlInstances.length - 1]
+      expect(lastInstance.currentVolume).toBe(0.3) // DUCKED_VOLUME
+    })
+
+    it('sounds are created with correct initial volume before ducking threshold', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Trigger a few sounds (below ducking threshold)
+      fireEvent.click(chaosContainer)
+      fireEvent.click(chaosContainer)
+      
+      // Volume should be at BASE_VOLUME (0.5)
+      expect(mockHowlInstances[0].currentVolume).toBe(0.5)
+    })
+
+    it('registers end event handler for auto-cleanup', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockOn.mockClear()
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      fireEvent.click(chaosContainer)
+      
+      // Should have registered 'end' event handler
+      expect(mockOn).toHaveBeenCalledWith('end', expect.any(Function))
+    })
+
+    it('continues playing new sounds even when at max (with fadeout)', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      mockHowlInstances.length = 0
+      mockPlay.mockClear()
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Trigger 12 sounds (4 over the limit)
+      for (let i = 0; i < 12; i++) {
+        fireEvent.click(chaosContainer)
+      }
+      
+      // All sounds should still be played (old ones fade out)
+      expect(mockPlay).toHaveBeenCalledTimes(12)
     })
   })
 })

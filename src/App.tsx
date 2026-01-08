@@ -15,6 +15,19 @@ const AUDIO_POOL = [
   '/audios/You Stupid - Sound Effect (HD).mp3',
 ]
 
+// Audio system constants
+const MAX_SIMULTANEOUS_SOUNDS = 8
+const DUCKING_THRESHOLD = 5 // Start ducking volume at this many sounds
+const BASE_VOLUME = 0.5
+const DUCKED_VOLUME = 0.3 // Volume when ducking is active
+const FADEOUT_DURATION = 200 // ms to fade out oldest sound
+
+// Type for tracking active sounds
+interface ActiveSound {
+  howl: Howl
+  startTime: number
+}
+
 // Video pool - available videos in the public/videos folder
 const VIDEO_POOL = [
   '/videos/Happy Birthday To You — Italian Brainrot Edition - Bernie Espo (720p, h264, youtube).mp4',
@@ -35,31 +48,101 @@ function App() {
   const touchStartY = useRef<number | null>(null)
   const touchStartX = useRef<number | null>(null)
   
+  // Track active sounds for limiting simultaneous playback
+  const activeSoundsRef = useRef<ActiveSound[]>([])
+  
+  /**
+   * Removes a sound from the active sounds tracking array.
+   */
+  const removeFromActiveSounds = useCallback((howl: Howl) => {
+    activeSoundsRef.current = activeSoundsRef.current.filter(s => s.howl !== howl)
+  }, [])
+  
+  /**
+   * Applies volume ducking to all active sounds when approaching the limit.
+   * This compresses the audio mix rather than clipping.
+   */
+  const applyVolumeDucking = useCallback(() => {
+    const activeCount = activeSoundsRef.current.length
+    const shouldDuck = activeCount >= DUCKING_THRESHOLD
+    const targetVolume = shouldDuck ? DUCKED_VOLUME : BASE_VOLUME
+    
+    // Apply ducked volume to all active sounds
+    activeSoundsRef.current.forEach(({ howl }) => {
+      howl.volume(targetVolume)
+    })
+  }, [])
+  
+  /**
+   * Fades out and removes the oldest sound when at max capacity.
+   */
+  const fadeOutOldestSound = useCallback(() => {
+    if (activeSoundsRef.current.length === 0) return
+    
+    // Sort by start time to find oldest
+    const sorted = [...activeSoundsRef.current].sort((a, b) => a.startTime - b.startTime)
+    const oldest = sorted[0]
+    
+    if (oldest) {
+      // Fade out over FADEOUT_DURATION
+      oldest.howl.fade(oldest.howl.volume(), 0, FADEOUT_DURATION)
+      
+      // Remove from tracking and unload after fade
+      setTimeout(() => {
+        oldest.howl.unload()
+        removeFromActiveSounds(oldest.howl)
+      }, FADEOUT_DURATION)
+    }
+  }, [removeFromActiveSounds])
+  
   /**
    * Plays a random sound from the audio pool.
-   * Creates a new Howl instance and plays it immediately.
+   * Enforces maximum simultaneous sounds with ducking and fadeout.
    */
   const playRandomSound = useCallback(() => {
     // Only play sounds after chaos has started
     if (!chaosStarted) return
     
+    // Check if we're at the maximum limit
+    if (activeSoundsRef.current.length >= MAX_SIMULTANEOUS_SOUNDS) {
+      // Fade out oldest sound to make room
+      fadeOutOldestSound()
+    }
+    
     // Pick a random audio file from the pool
     const randomIndex = Math.floor(Math.random() * AUDIO_POOL.length)
     const audioSrc = AUDIO_POOL[randomIndex]
     
-    // Create and play a new Howl instance
+    // Determine initial volume based on current sound count
+    const shouldDuck = activeSoundsRef.current.length >= DUCKING_THRESHOLD - 1
+    const initialVolume = shouldDuck ? DUCKED_VOLUME : BASE_VOLUME
+    
+    // Create the Howl instance
     const sound = new Howl({
       src: [audioSrc],
-      volume: 0.5,
+      volume: initialVolume,
     })
+    
+    // Track this sound
+    const activeSound: ActiveSound = {
+      howl: sound,
+      startTime: Date.now(),
+    }
+    activeSoundsRef.current.push(activeSound)
+    
+    // Apply ducking to all sounds now that we've added one
+    applyVolumeDucking()
     
     // Auto-cleanup after playback ends
     sound.on('end', () => {
+      removeFromActiveSounds(sound)
       sound.unload()
+      // Re-apply volume levels after a sound ends
+      applyVolumeDucking()
     })
     
     sound.play()
-  }, [chaosStarted])
+  }, [chaosStarted, fadeOutOldestSound, applyVolumeDucking, removeFromActiveSounds])
 
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.

@@ -177,3 +177,37 @@
 - Next high-priority feature should be "Audio system enforces maximum simultaneous sounds" (max 8 sounds)
 - The escalation system would also benefit from audio integration
 - Consider adding throttling to prevent too many sounds on rapid interactions
+
+## 2026-01-08 20:19 UTC - Feature: Audio System Enforces Maximum Simultaneous Sounds
+
+### Implemented
+- Added MAX_SIMULTANEOUS_SOUNDS constant (8) to limit concurrent audio playback
+- Created ActiveSound interface to track Howl instances with start timestamps
+- Implemented activeSoundsRef to track all currently playing sounds
+- Added removeFromActiveSounds() function to clean up finished sounds
+- Implemented applyVolumeDucking() that reduces volume when 5+ sounds are playing
+  - DUCKING_THRESHOLD = 5 sounds
+  - BASE_VOLUME = 0.5, DUCKED_VOLUME = 0.3
+- Implemented fadeOutOldestSound() that fades and removes oldest sound when at capacity
+  - FADEOUT_DURATION = 200ms for smooth fadeout
+  - Sorts by startTime to find oldest sound
+- Updated playRandomSound() to:
+  - Check if at max limit and fade out oldest if needed
+  - Apply appropriate initial volume based on ducking state
+  - Track new sounds in activeSoundsRef
+  - Apply ducking after adding new sounds
+  - Clean up tracking on sound end
+
+### Files Changed
+- src/App.tsx - Added constants, ActiveSound interface, tracking refs, and limiting functions
+- src/App.test.tsx - Updated mock to support volume() and fade() methods, added 6 new tests
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (34 tests, including 6 new audio limiting tests)
+
+### Notes for Next Agent
+- Audio system now properly limits to 8 simultaneous sounds
+- Volume ducking provides compression rather than clipping
+- Good next priorities: "Time-based escalation system" or "File structure matches spec.md layout"
+- The escalation system is a major feature that gates many visual effects
