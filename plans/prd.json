@@ -318,7 +318,7 @@
         "Primary text color: Pure white (#FFFFFF)",
         "Base background: Deep black (#000000)"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "setup",

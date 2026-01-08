@@ -73,6 +73,11 @@ const FAKE_UI_DURATION = 3000 // ms - how long fake UI elements last
 // Floating meme text constants
 const MEME_TEXT_START_LEVEL = 9 // Chaos level when meme text begins spawning
 const MEME_TEXT_PHRASES = ['SKIBIDI', 'OHIO', 'SIGMA', 'RIZZ', 'GYATT'] // Meme phrases to spawn
+const MEME_TEXT_FONTS = [
+  'Comic Sans MS', // Comic Sans for chaos
+  'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif', // Impact (already used)
+  'Arial Black, Arial, sans-serif', // Arial Black for bold chaos
+] // Mixed fonts for chaos as per spec
 const MAX_FLOATING_TEXTS = 20 // Maximum floating texts on screen simultaneously
 const MEME_TEXT_MIN_SPAWN_INTERVAL = 500 // ms - minimum spawn interval at max chaos
 const MEME_TEXT_MAX_SPAWN_INTERVAL = 2000 // ms - maximum spawn interval at level 9
@@ -151,6 +156,7 @@ interface FloatingText {
   rotation: number // Rotation in degrees
   size: number // Font size in rem
   color: string // Text color (hex)
+  fontFamily: string // Font family for typography variety
   vx: number // Velocity X (percentage per frame)
   vy: number // Velocity Y (percentage per frame)
   createdAt: number // Timestamp for tracking oldest elements
@@ -954,6 +960,9 @@ function App() {
         // White color (distinct from meme text colors)
         const color = '#FFFFFF'
         
+        // Impact font for birthday text (as per spec)
+        const fontFamily = 'Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif'
+        
         // Generate unique ID using counter
         birthdayTextCounterRef.current += 1
         const now = Date.now()
@@ -965,6 +974,7 @@ function App() {
           rotation,
           size,
           color,
+          fontFamily,
           vx,
           vy,
           createdAt: now,
@@ -1135,6 +1145,9 @@ function App() {
         ]
         const color = colors[Math.floor(Math.random() * colors.length)]
         
+        // Random font family (mixed fonts for chaos as per spec)
+        const fontFamily = MEME_TEXT_FONTS[Math.floor(Math.random() * MEME_TEXT_FONTS.length)]
+        
         // Generate unique ID using counter
         memeTextCounterRef.current += 1
         const now = Date.now()
@@ -1146,6 +1159,7 @@ function App() {
           rotation,
           size,
           color,
+          fontFamily,
           vx,
           vy,
           createdAt: now,
@@ -1804,6 +1818,7 @@ function App() {
               transform: `translate(calc(${text.x}% - 50%), calc(${text.y}% - 50%)) rotate(${text.rotation}deg)`,
               fontSize: `${text.size}rem`,
               color: text.color,
+              fontFamily: text.fontFamily,
             }}
             data-testid={`floating-text-${text.id}`}
           >
@@ -1823,6 +1838,7 @@ function App() {
               transform: `translate(calc(${text.x}% - 50%), calc(${text.y}% - 50%)) rotate(${text.rotation}deg)`,
               fontSize: `${text.size}rem`,
               color: text.color,
+              fontFamily: text.fontFamily,
             }}
             data-testid={`birthday-text-${text.id}`}
           >

@@ -413,7 +413,7 @@
 /* Floating meme text - spawns at chaos level 9+ */
 .floating-meme-text {
   position: absolute;
-  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  /* Font family is set inline via style prop for mixed fonts (Comic Sans, Impact, Arial Black) */
   font-weight: bold;
   text-transform: uppercase;
   pointer-events: none;
