@@ -115,8 +115,8 @@ const BMW_TEXT_SPEED_MAX = 0.2; // % per frame - maximum movement speed
 const BMW_BACKGROUND_FLASH_INTERVAL = 300; // ms - background flash interval at max chaos
 
 // Audio pool - available audio files in the public/audios folder
+// Only include files that actually exist - lazy loaded when needed
 const AUDIO_POOL = [
-  "/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3",
   "/audios/All Italian Brainrot Animals Sound Effect  2025.mp3",
   "/audios/Amogus - Sound effect.mp3",
   "/audios/Baba Booey - Sound Effect (HD).mp3",
@@ -1984,6 +1984,8 @@ function App() {
       applyVolumeDucking();
     });
 
+    // Load and play - Howler will load the file on first play
+    sound.load(); // Explicitly load the file
     sound.play();
   }, [
     chaosStarted,
@@ -2268,6 +2270,7 @@ function App() {
             loop
             muted
             playsInline
+            preload="metadata"
             onCanPlay={() => {
               handleVideoCanPlay("base");
               // Ensure playback speed is applied after video loads
@@ -2339,6 +2342,7 @@ function App() {
                 loop
                 muted
                 playsInline
+                preload="none"
                 onCanPlay={() => {
                   handleVideoCanPlay(clone.id);
                   // Ensure playback speed is applied after video loads
@@ -2380,6 +2384,17 @@ function App() {
               />
             );
           })}
+
+          {/* Hidden preload video for next video in pool - improves swipe performance */}
+          <video
+            key={`preload-${(currentVideoIndex + 1) % VIDEO_POOL.length}`}
+            src={VIDEO_POOL[(currentVideoIndex + 1) % VIDEO_POOL.length]}
+            preload="metadata"
+            muted
+            playsInline
+            style={{ display: "none" }}
+            aria-hidden="true"
+          />
         </div>
 
         {/* Corruption rectangles overlay */}
