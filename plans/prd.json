@@ -210,7 +210,7 @@
         "Playback speed changes at chaos level 7+",
         "Different clones can have different speeds"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",

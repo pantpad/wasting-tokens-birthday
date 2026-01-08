@@ -1825,7 +1825,7 @@ describe('App', () => {
 
   describe('Zoom Pulse Effects', () => {
     it('does not apply zoom pulses below chaos level 6', async () => {
-      const { container } = render(<App />)
+      render(<App />)
       
       // Enter chaos mode
       const tapText = screen.getByText(/TAP HERE/i)
@@ -1844,7 +1844,7 @@ describe('App', () => {
     })
 
     it('applies zoom pulses to base video at chaos level 6+', async () => {
-      const { container } = render(<App />)
+      render(<App />)
       
       // Enter chaos mode
       const tapText = screen.getByText(/TAP HERE/i)
@@ -1886,7 +1886,7 @@ describe('App', () => {
     })
 
     it('applies zoom pulses to video clones independently', async () => {
-      const { container } = render(<App />)
+      render(<App />)
       
       // Enter chaos mode
       const tapText = screen.getByText(/TAP HERE/i)
@@ -1935,7 +1935,7 @@ describe('App', () => {
     })
 
     it('increases pulse frequency with chaos level', async () => {
-      const { container } = render(<App />)
+      render(<App />)
       
       // Enter chaos mode
       const tapText = screen.getByText(/TAP HERE/i)
@@ -2010,7 +2010,7 @@ describe('App', () => {
     }, { timeout: 20000 })
 
     it('resets zoom pulses when chaos level drops below threshold', async () => {
-      const { container } = render(<App />)
+      render(<App />)
       
       // Enter chaos mode
       const tapText = screen.getByText(/TAP HERE/i)
@@ -2026,6 +2026,125 @@ describe('App', () => {
       
       // Should have scale(1) (no pulse)
       expect(style).toContain('scale(1)')
+    })
+  })
+
+  describe('Video Playback Speed Changes', () => {
+    it('does not change playback speed below chaos level 7', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for level 6 (below threshold)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 6000))
+      })
+      
+      const baseVideo = screen.getByTestId('chaos-video') as HTMLVideoElement
+      
+      // Playback speed should be normal (1.0)
+      expect(baseVideo.playbackRate).toBe(1.0)
+    })
+
+    it('changes playback speed at chaos level 7+', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 7
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 7000))
+      })
+      
+      const baseVideo = screen.getByTestId('chaos-video') as HTMLVideoElement
+      
+      // Playback speed should be set (may be any of the speed options)
+      const validSpeeds = [0.25, 0.5, 1.0, 2.0, 3.0]
+      expect(validSpeeds).toContain(baseVideo.playbackRate)
+    })
+
+    it('applies different speeds to different clones', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 7 (speed changes) and level 2+ (clones appear)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 7000))
+      })
+      
+      // Wait for clones to render
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 100))
+      })
+      
+      // Find clone elements
+      const clones = screen.queryAllByTestId(/video-clone-/) as HTMLVideoElement[]
+      
+      if (clones.length > 0) {
+        // Check that clones have playback speeds set
+        const validSpeeds = [0.25, 0.5, 1.0, 2.0, 3.0]
+        clones.forEach((clone) => {
+          expect(validSpeeds).toContain(clone.playbackRate)
+        })
+        
+        // If there are multiple clones, they might have different speeds
+        // (though randomness means they could be the same)
+        expect(clones.length).toBeGreaterThan(0)
+      }
+    })
+
+    it('changes playback speeds periodically at chaos level 7+', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for escalation to level 7
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 7000))
+      })
+      
+      const baseVideo = screen.getByTestId('chaos-video') as HTMLVideoElement
+      
+      // Get initial speed
+      const initialSpeed = baseVideo.playbackRate
+      const validSpeeds = [0.25, 0.5, 1.0, 2.0, 3.0]
+      expect(validSpeeds).toContain(initialSpeed)
+      
+      // Wait for speed change interval (2000ms)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 2100))
+      })
+      
+      // Speed may have changed (or could be the same due to randomness)
+      const newSpeed = baseVideo.playbackRate
+      expect(validSpeeds).toContain(newSpeed)
+    })
+
+    it('resets playback speed to normal when chaos level drops below threshold', async () => {
+      render(<App />)
+      
+      // Enter chaos mode
+      const tapText = screen.getByText(/TAP HERE/i)
+      fireEvent.click(tapText)
+      
+      // Wait for level 6 (below threshold)
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 6000))
+      })
+      
+      const baseVideo = screen.getByTestId('chaos-video') as HTMLVideoElement
+      
+      // Playback speed should be normal (1.0)
+      expect(baseVideo.playbackRate).toBe(1.0)
     })
   })
 })

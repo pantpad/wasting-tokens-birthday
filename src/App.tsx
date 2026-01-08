@@ -46,6 +46,11 @@ const PULSE_MIN_INTERVAL_MAX_CHAOS = 200 // ms - pulse interval at max chaos (fa
 const PULSE_SCALE_MIN = 1.0 // Minimum scale (normal size)
 const PULSE_SCALE_MAX = 1.1 // Maximum scale (10% larger)
 
+// Video playback speed constants
+const PLAYBACK_SPEED_START_LEVEL = 7 // Chaos level when playback speed changes begin
+const PLAYBACK_SPEED_CHANGE_INTERVAL = 2000 // ms - how often to change speeds
+const PLAYBACK_SPEED_OPTIONS = [0.25, 0.5, 1.0, 2.0, 3.0] // Available playback speeds
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -82,6 +87,7 @@ interface VideoClone {
   vx: number // Velocity X (percentage per frame)
   vy: number // Velocity Y (percentage per frame)
   spinSpeed: number // Spin speed (degrees per frame, 0 if not spinning)
+  playbackSpeed: number // Playback speed multiplier (1.0 = normal, 2.0 = 2x, 0.5 = 0.5x)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -137,6 +143,10 @@ function App() {
   const [baseVideoPulseScale, setBaseVideoPulseScale] = useState(1.0) // Base video pulse scale
   const [clonePulseScales, setClonePulseScales] = useState<Map<string, number>>(new Map()) // Clone pulse scales by ID
   const pulseTimersRef = useRef<Map<string, number>>(new Map()) // Track pulse timers for cleanup
+  
+  // Video playback speed state
+  const [baseVideoPlaybackSpeed, setBaseVideoPlaybackSpeed] = useState(1.0) // Base video playback speed
+  const playbackSpeedTimerRef = useRef<number | null>(null) // Timer for changing playback speeds
   
   /**
    * Time-based escalation system.
@@ -235,6 +245,14 @@ function App() {
         }
       }
       
+      // Calculate playback speed if speed changes are active (chaos level 7+)
+      let playbackSpeed = 1.0 // Default normal speed
+      if (chaosLevel >= PLAYBACK_SPEED_START_LEVEL) {
+        // Random playback speed from available options
+        const randomIndex = Math.floor(Math.random() * PLAYBACK_SPEED_OPTIONS.length)
+        playbackSpeed = PLAYBACK_SPEED_OPTIONS[randomIndex]
+      }
+      
       clones.push({
         id: `clone-${i}-${Date.now()}-${Math.random()}`,
         // Random position (0-100% for both axes, but keep some on screen)
@@ -249,6 +267,8 @@ function App() {
         vy,
         // Spin speed (0 if not spinning)
         spinSpeed,
+        // Playback speed (1.0 = normal)
+        playbackSpeed,
       })
     }
 
@@ -485,6 +505,76 @@ function App() {
       }
     }
   }, [chaosStarted, chaosLevel, isInverted])
+  
+  /**
+   * Video playback speed changes - videos randomly speed up or slow down.
+   * Activates at chaos level 7+ with random speed changes.
+   * Different clones can have different speeds.
+   */
+  useEffect(() => {
+    // Only apply playback speed changes if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < PLAYBACK_SPEED_START_LEVEL) {
+      // Reset playback speed to normal if below threshold
+      setBaseVideoPlaybackSpeed(1.0)
+      // Apply normal speed to base video
+      const baseVideo = videoRefs.current.get('base')
+      if (baseVideo) {
+        baseVideo.playbackRate = 1.0
+      }
+      // Apply normal speed to all clones
+      videoClones.forEach((clone) => {
+        const video = videoRefs.current.get(clone.id)
+        if (video) {
+          video.playbackRate = 1.0
+        }
+      })
+      // Clear playback speed timer
+      if (playbackSpeedTimerRef.current !== null) {
+        clearInterval(playbackSpeedTimerRef.current)
+        playbackSpeedTimerRef.current = null
+      }
+      return
+    }
+    
+    /**
+     * Changes playback speeds randomly for base video and clones.
+     */
+    const changePlaybackSpeeds = () => {
+      // Change base video speed randomly
+      const randomIndex = Math.floor(Math.random() * PLAYBACK_SPEED_OPTIONS.length)
+      const newSpeed = PLAYBACK_SPEED_OPTIONS[randomIndex]
+      setBaseVideoPlaybackSpeed(newSpeed)
+      const baseVideo = videoRefs.current.get('base')
+      if (baseVideo) {
+        baseVideo.playbackRate = newSpeed
+      }
+      
+      // Change clone speeds randomly (each clone independently)
+      // We'll update the actual video elements directly
+      videoRefs.current.forEach((video, id) => {
+        if (id !== 'base') {
+          // This is a clone
+          const cloneRandomIndex = Math.floor(Math.random() * PLAYBACK_SPEED_OPTIONS.length)
+          const cloneSpeed = PLAYBACK_SPEED_OPTIONS[cloneRandomIndex]
+          video.playbackRate = cloneSpeed
+        }
+      })
+    }
+    
+    // Initial speed change
+    changePlaybackSpeeds()
+    
+    // Set up interval to change speeds periodically
+    playbackSpeedTimerRef.current = window.setInterval(changePlaybackSpeeds, PLAYBACK_SPEED_CHANGE_INTERVAL)
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (playbackSpeedTimerRef.current !== null) {
+        clearInterval(playbackSpeedTimerRef.current)
+        playbackSpeedTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel, videoClones])
   
   /**
    * Zoom pulse effects - elements "breathe" by scaling from 1.0 to 1.1 and back.
@@ -872,8 +962,15 @@ function App() {
           {/* Base video (always rendered) */}
           <video
             ref={(el) => {
-              if (el) videoRefs.current.set('base', el)
-              else videoRefs.current.delete('base')
+              if (el) {
+                videoRefs.current.set('base', el)
+                // Apply playback speed when ref is set
+                if (chaosLevel >= PLAYBACK_SPEED_START_LEVEL) {
+                  el.playbackRate = baseVideoPlaybackSpeed
+                }
+              } else {
+                videoRefs.current.delete('base')
+              }
             }}
             className="video-player video-base"
             src={VIDEO_POOL[currentVideoIndex]}
@@ -881,7 +978,14 @@ function App() {
             loop
             muted
             playsInline
-            onCanPlay={() => handleVideoCanPlay('base')}
+            onCanPlay={() => {
+              handleVideoCanPlay('base')
+              // Ensure playback speed is applied after video loads
+              const baseVideo = videoRefs.current.get('base')
+              if (baseVideo && chaosLevel >= PLAYBACK_SPEED_START_LEVEL) {
+                baseVideo.playbackRate = baseVideoPlaybackSpeed
+              }
+            }}
             style={{
               transform: `scale(${baseVideoPulseScale})`,
             }}
@@ -895,8 +999,15 @@ function App() {
               <video
                 key={clone.id}
                 ref={(el) => {
-                  if (el) videoRefs.current.set(clone.id, el)
-                  else videoRefs.current.delete(clone.id)
+                  if (el) {
+                    videoRefs.current.set(clone.id, el)
+                    // Apply playback speed when ref is set
+                    if (chaosLevel >= PLAYBACK_SPEED_START_LEVEL) {
+                      el.playbackRate = clone.playbackSpeed
+                    }
+                  } else {
+                    videoRefs.current.delete(clone.id)
+                  }
                 }}
                 className="video-player video-clone"
                 src={VIDEO_POOL[currentVideoIndex]}
@@ -904,7 +1015,14 @@ function App() {
                 loop
                 muted
                 playsInline
-                onCanPlay={() => handleVideoCanPlay(clone.id)}
+                onCanPlay={() => {
+                  handleVideoCanPlay(clone.id)
+                  // Ensure playback speed is applied after video loads
+                  const video = videoRefs.current.get(clone.id)
+                  if (video && chaosLevel >= PLAYBACK_SPEED_START_LEVEL) {
+                    video.playbackRate = clone.playbackSpeed
+                  }
+                }}
                 style={{
                   position: 'absolute',
                   left: `${clone.x}%`,
