@@ -433,3 +433,28 @@
   transition: transform 0.1s linear;
   white-space: nowrap;
 }
+
+/* Floating birthday text - spawns at max chaos level (10) */
+.floating-birthday-text {
+  position: absolute;
+  font-family: Impact, Haettenschweiler, 'Arial Narrow Bold', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  pointer-events: none;
+  z-index: 151; /* Slightly above meme text */
+  color: #ffffff; /* White color - distinct from meme text */
+  /* Text shadow for visibility over video */
+  text-shadow: 
+    3px 3px 0 #000000,
+    -3px -3px 0 #000000,
+    3px -3px 0 #000000,
+    -3px 3px 0 #000000,
+    0 0 20px rgba(255, 255, 255, 0.8);
+  /* GPU acceleration for smooth movement */
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  /* Smooth transitions */
+  transition: transform 0.1s linear;
+  white-space: nowrap;
+}

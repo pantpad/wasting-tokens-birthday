@@ -1295,16 +1295,25 @@ describe('App', () => {
       fireEvent.click(container.querySelector('.entry-screen')!)
       
       // Happy Birthday should NOT be visible initially
-      expect(screen.queryByTestId('happy-birthday')).not.toBeInTheDocument()
+      expect(screen.queryAllByText('Happy Birthday Michael')).toHaveLength(0)
       
       // Advance to max chaos level
       act(() => {
         vi.advanceTimersByTime(9000)
       })
       
-      // Happy Birthday text should now be visible
-      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
-      expect(screen.getByText('Happy Birthday Michael')).toBeInTheDocument()
+      // Wait for birthday text to spawn (it spawns with a timer)
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      // Happy Birthday text should now be visible as floating text
+      const birthdayTexts = screen.getAllByText('Happy Birthday Michael')
+      expect(birthdayTexts.length).toBeGreaterThan(0)
+      // Check that they are floating birthday text elements
+      birthdayTexts.forEach(text => {
+        expect(text).toHaveClass('floating-birthday-text')
+      })
     })
 
     it('Happy Birthday text does not appear before max chaos', () => {
@@ -1317,15 +1326,24 @@ describe('App', () => {
       for (let level = 1; level < 10; level++) {
         const chaosContainer = screen.getByTestId('chaos-container')
         expect(chaosContainer).toHaveAttribute('data-chaos-level', String(level))
-        expect(screen.queryByTestId('happy-birthday')).not.toBeInTheDocument()
+        expect(screen.queryAllByText('Happy Birthday Michael')).toHaveLength(0)
         
         act(() => {
           vi.advanceTimersByTime(1000)
         })
       }
       
-      // At level 10, it should appear
-      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+      // At level 10, wait for text to spawn
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      // At level 10, it should appear as floating text
+      const birthdayTexts = screen.getAllByText('Happy Birthday Michael')
+      expect(birthdayTexts.length).toBeGreaterThan(0)
+      birthdayTexts.forEach(text => {
+        expect(text).toHaveClass('floating-birthday-text')
+      })
     })
 
     it('Happy Birthday text persists after swiping at max chaos', () => {
@@ -1341,14 +1359,21 @@ describe('App', () => {
         vi.advanceTimersByTime(9000)
       })
       
-      // Verify Happy Birthday is visible
-      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+      // Wait for birthday text to spawn
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      // Verify Happy Birthday is visible as floating text
+      const initialTexts = screen.getAllByText('Happy Birthday Michael')
+      expect(initialTexts.length).toBeGreaterThan(0)
       
       // Swipe to change video
       simulateSwipe(chaosContainer, 300, 100)
       
-      // Happy Birthday should still be visible
-      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+      // Happy Birthday should still be visible (floating texts persist)
+      const textsAfterSwipe = screen.getAllByText('Happy Birthday Michael')
+      expect(textsAfterSwipe.length).toBeGreaterThan(0)
     })
 
     it('session maintains chaos state - no mechanism to decrease', () => {

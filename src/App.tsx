@@ -82,6 +82,17 @@ const MEME_TEXT_SPEED_MAX = 0.3 // % per frame - maximum movement speed
 const MEME_TEXT_MIN_SIZE = 1.5 // rem - minimum font size
 const MEME_TEXT_MAX_SIZE = 4.0 // rem - maximum font size
 
+// Happy Birthday text constants
+const BIRTHDAY_TEXT_START_LEVEL = 10 // Chaos level when birthday text begins spawning
+const BIRTHDAY_TEXT_PHRASE = 'Happy Birthday Michael' // Birthday text phrase
+const MAX_FLOATING_BIRTHDAY_TEXTS = 5 // Maximum floating birthday texts on screen simultaneously
+const BIRTHDAY_TEXT_MIN_SPAWN_INTERVAL_AFTER_MAX = 500 // ms - minimum spawn interval after max chaos (increased frequency)
+const BIRTHDAY_TEXT_MAX_SPAWN_INTERVAL_AFTER_MAX = 1500 // ms - maximum spawn interval after max chaos (increased frequency)
+const BIRTHDAY_TEXT_SPEED_MIN = 0.03 // % per frame - minimum movement speed (slower than meme text)
+const BIRTHDAY_TEXT_SPEED_MAX = 0.15 // % per frame - maximum movement speed (slower than meme text)
+const BIRTHDAY_TEXT_MIN_SIZE = 2.5 // rem - minimum font size (larger than meme text)
+const BIRTHDAY_TEXT_MAX_SIZE = 4.5 // rem - maximum font size (larger than meme text)
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -227,6 +238,12 @@ function App() {
   const memeTextAnimationFrameRef = useRef<number | null>(null)
   const memeTextSpawnTimerRef = useRef<number | null>(null)
   const memeTextCounterRef = useRef<number>(0) // Counter for unique IDs
+  
+  // Floating birthday text state
+  const [floatingBirthdayTexts, setFloatingBirthdayTexts] = useState<FloatingText[]>([])
+  const birthdayTextAnimationFrameRef = useRef<number | null>(null)
+  const birthdayTextSpawnTimerRef = useRef<number | null>(null)
+  const birthdayTextCounterRef = useRef<number>(0) // Counter for unique IDs
   
   /**
    * Time-based escalation system.
@@ -849,6 +866,165 @@ function App() {
   }, [chaosStarted, chaosLevel])
   
   /**
+   * Floating birthday text system.
+   * Spawns "Happy Birthday Michael" text that floats across screen like meme text.
+   * Activates at chaos level 10 (max chaos) with random trajectories, sizes, rotations.
+   * Frequency increases after reaching max chaos (level 10).
+   * Uses white color and Impact font to be distinct from meme phrases.
+   */
+  useEffect(() => {
+    // Only spawn floating birthday texts if chaos started and at max chaos
+    if (!chaosStarted || chaosLevel < BIRTHDAY_TEXT_START_LEVEL) {
+      // Clear all floating birthday texts if below threshold
+      setFloatingBirthdayTexts([])
+      if (birthdayTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(birthdayTextAnimationFrameRef.current)
+        birthdayTextAnimationFrameRef.current = null
+      }
+      if (birthdayTextSpawnTimerRef.current !== null) {
+        clearTimeout(birthdayTextSpawnTimerRef.current)
+        birthdayTextSpawnTimerRef.current = null
+      }
+      return
+    }
+    
+    // Calculate spawn interval - faster after max chaos (level 10+)
+    // At level 10: 1-3s, after level 10: 0.5-1.5s (increased frequency)
+    // Since we're already at max chaos, we use the "after max" intervals
+    const minInterval = BIRTHDAY_TEXT_MIN_SPAWN_INTERVAL_AFTER_MAX
+    const maxInterval = BIRTHDAY_TEXT_MAX_SPAWN_INTERVAL_AFTER_MAX
+    
+    /**
+     * Spawns a new floating birthday text.
+     */
+    const spawnBirthdayText = () => {
+      setFloatingBirthdayTexts((prev) => {
+        // Don't spawn if at max limit
+        if (prev.length >= MAX_FLOATING_BIRTHDAY_TEXTS) {
+          return prev
+        }
+        
+        // Random starting position (spawn from edges of screen)
+        const spawnEdge = Math.floor(Math.random() * 4) // 0=top, 1=right, 2=bottom, 3=left
+        let startX = 0
+        let startY = 0
+        
+        if (spawnEdge === 0) {
+          // Top edge
+          startX = Math.random() * 100
+          startY = -10
+        } else if (spawnEdge === 1) {
+          // Right edge
+          startX = 110
+          startY = Math.random() * 100
+        } else if (spawnEdge === 2) {
+          // Bottom edge
+          startX = Math.random() * 100
+          startY = 110
+        } else {
+          // Left edge
+          startX = -10
+          startY = Math.random() * 100
+        }
+        
+        // Random target position (opposite side of screen)
+        const targetX = Math.random() * 100
+        const targetY = Math.random() * 100
+        
+        // Calculate velocity towards target
+        const dx = targetX - startX
+        const dy = targetY - startY
+        const distance = Math.sqrt(dx * dx + dy * dy)
+        const speed = BIRTHDAY_TEXT_SPEED_MIN + Math.random() * (BIRTHDAY_TEXT_SPEED_MAX - BIRTHDAY_TEXT_SPEED_MIN)
+        const vx = (dx / distance) * speed
+        const vy = (dy / distance) * speed
+        
+        // Random properties
+        const rotation = (Math.random() - 0.5) * 60 // -30 to 30 degrees
+        const size = BIRTHDAY_TEXT_MIN_SIZE + Math.random() * (BIRTHDAY_TEXT_MAX_SIZE - BIRTHDAY_TEXT_MIN_SIZE)
+        
+        // White color (distinct from meme text colors)
+        const color = '#FFFFFF'
+        
+        // Generate unique ID using counter
+        birthdayTextCounterRef.current += 1
+        const newText: FloatingText = {
+          id: `birthday-text-${Date.now()}-${birthdayTextCounterRef.current}-${Math.random()}`,
+          text: BIRTHDAY_TEXT_PHRASE,
+          x: startX,
+          y: startY,
+          rotation,
+          size,
+          color,
+          vx,
+          vy,
+        }
+        
+        return [...prev, newText]
+      })
+    }
+    
+    /**
+     * Animation loop for moving floating birthday texts across screen.
+     */
+    const animateFloatingBirthdayTexts = () => {
+      setFloatingBirthdayTexts((prev) => {
+        return prev
+          .map((text) => {
+            // Update position
+            let newX = text.x + text.vx
+            let newY = text.y + text.vy
+            
+            // Remove text if it goes far off-screen
+            if (newX < -20 || newX > 120 || newY < -20 || newY > 120) {
+              return null // Mark for removal
+            }
+            
+            return {
+              ...text,
+              x: newX,
+              y: newY,
+            }
+          })
+          .filter((text): text is FloatingText => text !== null) // Remove nulls
+      })
+      
+      // Continue animation loop
+      birthdayTextAnimationFrameRef.current = requestAnimationFrame(animateFloatingBirthdayTexts)
+    }
+    
+    // Start animation loop
+    birthdayTextAnimationFrameRef.current = requestAnimationFrame(animateFloatingBirthdayTexts)
+    
+    /**
+     * Spawns birthday texts periodically.
+     */
+    const scheduleNextSpawn = () => {
+      const interval = minInterval + Math.random() * (maxInterval - minInterval)
+      birthdayTextSpawnTimerRef.current = window.setTimeout(() => {
+        spawnBirthdayText()
+        scheduleNextSpawn()
+      }, interval)
+    }
+    
+    // Initial spawn
+    spawnBirthdayText()
+    scheduleNextSpawn()
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (birthdayTextAnimationFrameRef.current !== null) {
+        cancelAnimationFrame(birthdayTextAnimationFrameRef.current)
+        birthdayTextAnimationFrameRef.current = null
+      }
+      if (birthdayTextSpawnTimerRef.current !== null) {
+        clearTimeout(birthdayTextSpawnTimerRef.current)
+        birthdayTextSpawnTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel])
+  
+  /**
    * Floating meme text system.
    * Spawns meme phrases (SKIBIDI, OHIO, SIGMA, RIZZ, GYATT) that float across screen.
    * Activates at chaos level 9+ with random trajectories, sizes, rotations, and colors.
@@ -1369,9 +1545,6 @@ function App() {
     )
   }
 
-  // Check if we're at max chaos for "Happy Birthday" text
-  const isMaxChaos = chaosLevel >= MAX_CHAOS_LEVEL
-
   // Chaos mode with TikTok-style vertical video feed
   return (
     <div 
@@ -1619,12 +1792,24 @@ function App() {
           </div>
         ))}
         
-        {/* Happy Birthday text appears at max chaos level */}
-        {isMaxChaos && (
-          <div className="happy-birthday-overlay" data-testid="happy-birthday">
-            <span className="happy-birthday-text">Happy Birthday Michael</span>
+        {/* Floating birthday text - spawns at max chaos level (10) */}
+        {chaosLevel >= BIRTHDAY_TEXT_START_LEVEL && floatingBirthdayTexts.map((text) => (
+          <div
+            key={text.id}
+            className="floating-birthday-text"
+            style={{
+              position: 'absolute',
+              left: `${text.x}%`,
+              top: `${text.y}%`,
+              transform: `translate(-50%, -50%) rotate(${text.rotation}deg)`,
+              fontSize: `${text.size}rem`,
+              color: text.color,
+            }}
+            data-testid={`birthday-text-${text.id}`}
+          >
+            {text.text}
           </div>
-        )}
+        ))}
       </div>
     </div>
   )

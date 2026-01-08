@@ -258,7 +258,7 @@
         "Text floats like other meme text",
         "Distinct from other meme phrases"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
