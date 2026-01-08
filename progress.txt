@@ -265,3 +265,40 @@
 - The Happy Birthday text appears as a centered overlay - full floating animation will be in separate feature
 - Good next priorities: "Video clones duplicate and multiply on screen" or UI effects like "Screen shake"
 - Many visual effects now have the chaos level system to build upon
+
+## 2026-01-08 20:29 UTC - Feature: Screen Shake Effect Intensifies with Chaos Level
+
+### Implemented
+- Added screen shake effect that activates at chaos level 3 and intensifies up to level 10
+- Created constants for shake configuration:
+  - SHAKE_START_LEVEL = 3 (chaos level when shake begins)
+  - SHAKE_MIN_INTERVAL = 50ms (interval at max chaos - violent shaking)
+  - SHAKE_MAX_INTERVAL = 200ms (interval at start - subtle shaking)
+  - SHAKE_MIN_INTENSITY = 2px (subtle shake at level 3)
+  - SHAKE_MAX_INTENSITY = 15px (violent shake at max chaos)
+- Added shakeOffset state and shakeTimerRef for tracking shake animation
+- Implemented useEffect that manages shake animation:
+  - Calculates intensity based on chaos level (3-10 maps to min-max)
+  - Calculates interval (slower at level 3, faster at level 10)
+  - Uses setInterval for continuous random position updates
+  - Cleans up on unmount or when chaos level changes below threshold
+- Applied shake transform to chaos-active container via inline style
+- Added data-testid="chaos-content" for testing the shake element
+- Updated CSS with GPU acceleration (will-change, backface-visibility)
+
+### Files Changed
+- src/App.tsx - Added shake constants, state, useEffect, and transform style
+- src/App.css - Added GPU acceleration styles to .chaos-active
+- src/App.test.tsx - Added 6 new tests for screen shake (53 total tests)
+- plans/prd.json - Marked feature as passes: true
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (53 tests)
+
+### Notes for Next Agent
+- Screen shake is now fully functional with intensity scaling from chaos level 3-10
+- Shake uses CSS transforms for GPU-accelerated animation
+- The shake effect uses random offsets within the intensity range
+- Good next priorities: "Color manipulation effects" (CSS filters) or "Video clones duplicate"
+- The chaosLevel variable is available for other effects to use the same escalation pattern

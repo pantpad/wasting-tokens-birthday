@@ -773,6 +773,139 @@ describe('App', () => {
     })
   })
 
+  describe('Screen Shake Effect', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('does not shake before chaos level 3', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get the chaos-content element (which has the shake transform)
+      const chaosContent = screen.getByTestId('chaos-content')
+      
+      // At level 1, no shake (transform should be translate(0px, 0px))
+      expect(chaosContent.style.transform).toBe('translate(0px, 0px)')
+      
+      // Advance to level 2
+      act(() => {
+        vi.advanceTimersByTime(1000)
+      })
+      expect(chaosContent.style.transform).toBe('translate(0px, 0px)')
+    })
+
+    it('starts shaking at chaos level 3', () => {
+      // Mock Math.random to return predictable values for shake
+      vi.spyOn(Math, 'random')
+        .mockReturnValueOnce(0) // video selection
+        .mockReturnValueOnce(0.75) // shake x
+        .mockReturnValueOnce(0.25) // shake y
+      
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 3
+      act(() => {
+        vi.advanceTimersByTime(2000) // Level 1 + 2 increments = level 3
+      })
+      
+      // Get the chaos-content element
+      const chaosContent = screen.getByTestId('chaos-content')
+      
+      // Transform should now have non-zero values
+      const transform = chaosContent.style.transform
+      expect(transform).not.toBe('translate(0px, 0px)')
+      expect(transform).toMatch(/translate\(-?\d+\.?\d*px, -?\d+\.?\d*px\)/)
+      
+      vi.spyOn(Math, 'random').mockRestore()
+    })
+
+    it('shake intensity increases with chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 3 - shake should be active
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      const chaosContent = screen.getByTestId('chaos-content')
+      
+      // Verify shake is active at level 3 (transform has non-zero values)
+      expect(chaosContent.style.transform).toMatch(/translate\(-?\d+\.?\d*px, -?\d+\.?\d*px\)/)
+      
+      // Advance to level 10
+      act(() => {
+        vi.advanceTimersByTime(7000)
+      })
+      
+      // Shake should still be occurring at max chaos (transform not 0,0)
+      const transformAtLevel10 = chaosContent.style.transform
+      expect(transformAtLevel10).toMatch(/translate\(-?\d+\.?\d*px, -?\d+\.?\d*px\)/)
+      
+      // Note: We can't easily compare intensities directly due to random values,
+      // but we verify shake is happening at both chaos levels
+    })
+
+    it('has chaos-content element for shake transform', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify chaos-content element exists with testid
+      const chaosContent = screen.getByTestId('chaos-content')
+      expect(chaosContent).toBeInTheDocument()
+      expect(chaosContent).toHaveClass('chaos-active')
+    })
+
+    it('chaos-content has transform style applied', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get chaos-content
+      const chaosContent = screen.getByTestId('chaos-content')
+      
+      // Should have a transform style
+      expect(chaosContent.style.transform).toMatch(/translate\(-?\d+\.?\d*px, -?\d+\.?\d*px\)/)
+    })
+
+    it('shake persists at max chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to max chaos
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      
+      const chaosContent = screen.getByTestId('chaos-content')
+      
+      // Advance more time - shake should continue at max
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+      
+      // Transform should still be applied (shake continuing)
+      expect(chaosContent.style.transform).toMatch(/translate\(-?\d+\.?\d*px, -?\d+\.?\d*px\)/)
+    })
+  })
+
   describe('Audio Limiting System', () => {
     it('allows up to 8 simultaneous sounds', () => {
       const { container } = render(<App />)

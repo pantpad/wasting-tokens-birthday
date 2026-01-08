@@ -6,6 +6,13 @@ import './App.css'
 const MAX_CHAOS_LEVEL = 10
 const ESCALATION_INTERVAL = 1000 // 1 second per level
 
+// Screen shake constants
+const SHAKE_START_LEVEL = 3 // Chaos level when shake begins
+const SHAKE_MIN_INTERVAL = 50 // ms - interval at max chaos (violent)
+const SHAKE_MAX_INTERVAL = 200 // ms - interval at start (subtle)
+const SHAKE_MIN_INTENSITY = 2 // px - subtle shake at level 3
+const SHAKE_MAX_INTENSITY = 15 // px - violent shake at max chaos
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -59,6 +66,10 @@ function App() {
   // Escalation timer ref for cleanup
   const escalationTimerRef = useRef<number | null>(null)
   
+  // Screen shake state
+  const [shakeOffset, setShakeOffset] = useState({ x: 0, y: 0 })
+  const shakeTimerRef = useRef<number | null>(null)
+  
   /**
    * Time-based escalation system.
    * Increments chaos level every second from 1 to 10 over 10 seconds.
@@ -90,6 +101,49 @@ function App() {
       }
     }
   }, [chaosStarted])
+  
+  /**
+   * Screen shake effect.
+   * Activates at chaos level 3 and intensifies up to level 10.
+   * Uses random offsets applied via CSS transform for GPU acceleration.
+   */
+  useEffect(() => {
+    // Only shake if chaos started and level is high enough
+    if (!chaosStarted || chaosLevel < SHAKE_START_LEVEL) {
+      // Reset shake offset if below threshold
+      setShakeOffset({ x: 0, y: 0 })
+      return
+    }
+    
+    // Calculate intensity based on chaos level (3-10 maps to min-max intensity)
+    const levelProgress = (chaosLevel - SHAKE_START_LEVEL) / (MAX_CHAOS_LEVEL - SHAKE_START_LEVEL)
+    const intensity = SHAKE_MIN_INTENSITY + levelProgress * (SHAKE_MAX_INTENSITY - SHAKE_MIN_INTENSITY)
+    
+    // Calculate interval - faster shake at higher levels
+    const interval = SHAKE_MAX_INTERVAL - levelProgress * (SHAKE_MAX_INTERVAL - SHAKE_MIN_INTERVAL)
+    
+    // Start the shake timer
+    const updateShake = () => {
+      // Random offset within intensity range
+      const x = (Math.random() - 0.5) * 2 * intensity
+      const y = (Math.random() - 0.5) * 2 * intensity
+      setShakeOffset({ x, y })
+    }
+    
+    // Initial shake
+    updateShake()
+    
+    // Set up interval for continuous shaking
+    shakeTimerRef.current = window.setInterval(updateShake, interval)
+    
+    // Cleanup on unmount or when chaos level changes
+    return () => {
+      if (shakeTimerRef.current !== null) {
+        clearInterval(shakeTimerRef.current)
+        shakeTimerRef.current = null
+      }
+    }
+  }, [chaosStarted, chaosLevel])
   
   /**
    * Removes a sound from the active sounds tracking array.
@@ -340,7 +394,13 @@ function App() {
       data-testid="chaos-container"
       data-chaos-level={chaosLevel}
     >
-      <div className="chaos-active">
+      <div 
+        className="chaos-active"
+        style={{
+          transform: `translate(${shakeOffset.x}px, ${shakeOffset.y}px)`,
+        }}
+        data-testid="chaos-content"
+      >
         {/* Full-screen vertical video feed */}
         <div className="video-feed">
           <video
