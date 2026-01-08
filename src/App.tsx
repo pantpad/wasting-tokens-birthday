@@ -133,6 +133,7 @@ const DUCKING_THRESHOLD = 5; // Start ducking volume at this many sounds
 const BASE_VOLUME = 0.5;
 const DUCKED_VOLUME = 0.3; // Volume when ducking is active
 const FADEOUT_DURATION = 200; // ms to fade out oldest sound
+const AUDIO_THROTTLE_MS = 150; // Minimum milliseconds between sound plays to prevent audio overload
 
 // Type for tracking active sounds
 interface ActiveSound {
@@ -248,6 +249,9 @@ function App() {
   // Track active sounds for limiting simultaneous playback
   const activeSoundsRef = useRef<ActiveSound[]>([]);
 
+  // Throttle audio playback to prevent overwhelming mobile browsers
+  const lastSoundPlayTimeRef = useRef<number>(0);
+
   // Escalation timer ref for cleanup
   const escalationTimerRef = useRef<number | null>(null);
 
@@ -333,7 +337,7 @@ function App() {
   useEffect(() => {
     // Try to play the song immediately when component mounts
     const birthdaySongSrc = "/audios/Happy Birthday song.mp3";
-    
+
     // Create the sound instance immediately
     const sound = new Howl({
       src: [birthdaySongSrc],
@@ -2008,7 +2012,8 @@ function App() {
       }
 
       // Determine initial volume based on current sound count
-      const shouldDuck = activeSoundsRef.current.length >= DUCKING_THRESHOLD - 1;
+      const shouldDuck =
+        activeSoundsRef.current.length >= DUCKING_THRESHOLD - 1;
       const initialVolume = shouldDuck ? DUCKED_VOLUME : BASE_VOLUME;
 
       // Create the Howl instance
@@ -2051,7 +2056,7 @@ function App() {
       sound.once("load", () => {
         playSoundNow();
       });
-      
+
       // If already loaded, play immediately
       if (sound.state() === "loaded") {
         playSoundNow();
@@ -2070,10 +2075,21 @@ function App() {
   /**
    * Plays a random sound from the audio pool.
    * Enforces maximum simultaneous sounds with ducking and fadeout.
+   * Throttled to prevent overwhelming mobile browsers.
    */
   const playRandomSound = useCallback(() => {
     // Only play sounds after chaos has started
     if (!chaosStarted) return;
+
+    // Throttle: only play if enough time has passed since last sound
+    const now = Date.now();
+    const timeSinceLastSound = now - lastSoundPlayTimeRef.current;
+    if (timeSinceLastSound < AUDIO_THROTTLE_MS) {
+      return; // Skip this sound to prevent audio overload
+    }
+
+    // Update last play time
+    lastSoundPlayTimeRef.current = now;
 
     // Pick a random audio file from the pool
     const randomIndex = Math.floor(Math.random() * AUDIO_POOL.length);
@@ -2101,7 +2117,7 @@ function App() {
   const unlockAudio = useCallback(async () => {
     // Ensure Howler is initialized and not muted
     Howler.mute(false);
-    
+
     // Resume the global Howler AudioContext (iOS requirement)
     if (Howler.ctx && Howler.ctx.state === "suspended") {
       await Howler.ctx.resume();
@@ -2130,7 +2146,10 @@ function App() {
 
     // The initial birthday song should already be playing (or will start now)
     // Only play again if it's not already playing
-    if (!initialBirthdaySoundRef.current || !initialBirthdaySoundRef.current.playing()) {
+    if (
+      !initialBirthdaySoundRef.current ||
+      !initialBirthdaySoundRef.current.playing()
+    ) {
       playHappyBirthdaySong();
     }
 
@@ -2196,6 +2215,7 @@ function App() {
 
   /**
    * Handle touch move - prevent default to disable scrolling and play chaos sounds
+   * Throttled to prevent audio overload on mobile browsers
    */
   const handleTouchMove = useCallback(
     (e: React.TouchEvent) => {
@@ -2203,7 +2223,7 @@ function App() {
       if (chaosStarted && touchStartY.current !== null) {
         // Prevent default scroll behavior
         e.preventDefault();
-        // Play sound on touch move for chaos effect
+        // Play sound on touch move for chaos effect (throttled internally)
         playRandomSound();
       }
     },
@@ -2264,8 +2284,10 @@ function App() {
 
   /**
    * Handle pointer move (for desktop mouse interactions)
+   * Throttled to prevent audio overload
    */
   const handlePointerMove = useCallback(() => {
+    // Throttled internally by playRandomSound
     playRandomSound();
   }, [playRandomSound]);
 
