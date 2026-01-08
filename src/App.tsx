@@ -153,6 +153,7 @@ interface FloatingText {
   color: string // Text color (hex)
   vx: number // Velocity X (percentage per frame)
   vy: number // Velocity Y (percentage per frame)
+  createdAt: number // Timestamp for tracking oldest elements
 }
 
 // Video pool - available videos in the public/videos folder
@@ -899,9 +900,16 @@ function App() {
      */
     const spawnBirthdayText = () => {
       setFloatingBirthdayTexts((prev) => {
-        // Don't spawn if at max limit
+        // Remove oldest text if at max limit (oldest elements removed when cap reached)
+        let updatedTexts = prev
         if (prev.length >= MAX_FLOATING_BIRTHDAY_TEXTS) {
-          return prev
+          // Sort by creation time to find oldest (fallback to 0 for texts without createdAt)
+          const sorted = [...prev].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+          const oldest = sorted[0]
+          if (oldest) {
+            // Remove oldest text
+            updatedTexts = prev.filter((text) => text.id !== oldest.id)
+          }
         }
         
         // Random starting position (spawn from edges of screen)
@@ -948,8 +956,9 @@ function App() {
         
         // Generate unique ID using counter
         birthdayTextCounterRef.current += 1
+        const now = Date.now()
         const newText: FloatingText = {
-          id: `birthday-text-${Date.now()}-${birthdayTextCounterRef.current}-${Math.random()}`,
+          id: `birthday-text-${now}-${birthdayTextCounterRef.current}-${Math.random()}`,
           text: BIRTHDAY_TEXT_PHRASE,
           x: startX,
           y: startY,
@@ -958,9 +967,10 @@ function App() {
           color,
           vx,
           vy,
+          createdAt: now,
         }
         
-        return [...prev, newText]
+        return [...updatedTexts, newText]
       })
     }
     
@@ -1059,9 +1069,16 @@ function App() {
      */
     const spawnMemeText = () => {
       setFloatingTexts((prev) => {
-        // Don't spawn if at max limit
+        // Remove oldest text if at max limit (oldest elements removed when cap reached)
+        let updatedTexts = prev
         if (prev.length >= MAX_FLOATING_TEXTS) {
-          return prev
+          // Sort by creation time to find oldest (fallback to 0 for texts without createdAt)
+          const sorted = [...prev].sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0))
+          const oldest = sorted[0]
+          if (oldest) {
+            // Remove oldest text
+            updatedTexts = prev.filter((text) => text.id !== oldest.id)
+          }
         }
         
         // Random meme phrase
@@ -1120,8 +1137,9 @@ function App() {
         
         // Generate unique ID using counter
         memeTextCounterRef.current += 1
+        const now = Date.now()
         const newText: FloatingText = {
-          id: `meme-text-${Date.now()}-${memeTextCounterRef.current}-${Math.random()}`,
+          id: `meme-text-${now}-${memeTextCounterRef.current}-${Math.random()}`,
           text: randomPhrase,
           x: startX,
           y: startY,
@@ -1130,9 +1148,10 @@ function App() {
           color,
           vx,
           vy,
+          createdAt: now,
         }
         
-        return [...prev, newText]
+        return [...updatedTexts, newText]
       })
     }
     

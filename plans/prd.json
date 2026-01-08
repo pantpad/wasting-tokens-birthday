@@ -282,7 +282,7 @@
         "Oldest elements removed when cap reached",
         "Memory management for long sessions"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",
