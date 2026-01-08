@@ -151,4 +151,147 @@ describe('App', () => {
       expect(video).toHaveClass('video-player')
     })
   })
+
+  describe('Swipe Navigation', () => {
+    // Helper to simulate touch swipe
+    const simulateSwipe = (element: Element, startY: number, endY: number, startX = 100, endX = 100) => {
+      fireEvent.touchStart(element, {
+        touches: [{ clientX: startX, clientY: startY }],
+      })
+      fireEvent.touchMove(element, {
+        touches: [{ clientX: endX, clientY: (startY + endY) / 2 }],
+      })
+      fireEvent.touchEnd(element, {
+        changedTouches: [{ clientX: endX, clientY: endY }],
+      })
+    }
+
+    it('swipe up changes to next video', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get the initial video src
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      const initialSrc = video.src
+      
+      // Simulate swipe up (start at bottom, end at top - deltaY > threshold)
+      const chaosContainer = screen.getByTestId('chaos-container')
+      simulateSwipe(chaosContainer, 300, 100) // Swipe up: startY > endY
+      
+      // Video should have changed
+      expect(video.src).not.toBe(initialSrc)
+    })
+
+    it('swipe down changes to previous video', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get the initial video src
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      const initialSrc = video.src
+      
+      // Simulate swipe up first to have a previous video to go back to
+      const chaosContainer = screen.getByTestId('chaos-container')
+      simulateSwipe(chaosContainer, 300, 100) // Swipe up first
+      
+      const afterSwipeUpSrc = video.src
+      
+      // Now swipe down (start at top, end at bottom - deltaY < -threshold)
+      simulateSwipe(chaosContainer, 100, 300) // Swipe down: startY < endY
+      
+      // Video should have changed back
+      expect(video.src).not.toBe(afterSwipeUpSrc)
+      expect(video.src).toBe(initialSrc)
+    })
+
+    it('small swipe does not change video (below threshold)', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get the initial video src
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      const initialSrc = video.src
+      
+      // Simulate small swipe (less than 50px threshold)
+      const chaosContainer = screen.getByTestId('chaos-container')
+      simulateSwipe(chaosContainer, 100, 130) // Only 30px, below threshold
+      
+      // Video should NOT have changed
+      expect(video.src).toBe(initialSrc)
+    })
+
+    it('horizontal swipe does not change video', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Get the initial video src
+      const video = screen.getByTestId('chaos-video') as HTMLVideoElement
+      const initialSrc = video.src
+      
+      // Simulate horizontal swipe (large X delta, small Y delta)
+      const chaosContainer = screen.getByTestId('chaos-container')
+      simulateSwipe(chaosContainer, 100, 120, 100, 300) // Horizontal swipe
+      
+      // Video should NOT have changed
+      expect(video.src).toBe(initialSrc)
+    })
+
+    it('video wraps around to last video when swiping down from first', () => {
+      // Mock Math.random to always return 0 (first video)
+      const mockRandom = vi.spyOn(Math, 'random').mockReturnValue(0)
+      
+      // Render to get first video
+      const { container } = render(<App />)
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const video = container.querySelector('[data-testid="chaos-video"]') as HTMLVideoElement
+      const initialSrc = video.src
+      
+      // Swipe down to wrap to last video
+      const chaosContainer = container.querySelector('[data-testid="chaos-container"]')!
+      simulateSwipe(chaosContainer, 100, 300) // Swipe down
+      
+      // Should be a different video (the last one)
+      expect(video.src).not.toBe(initialSrc)
+      
+      mockRandom.mockRestore()
+    })
+
+    it('chaos container has touch event handlers', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Verify chaos container exists with test id
+      const chaosContainer = screen.getByTestId('chaos-container')
+      expect(chaosContainer).toBeInTheDocument()
+    })
+
+    it('touchmove is handled (for scroll prevention)', () => {
+      const { container } = render(<App />)
+      
+      // Trigger chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // This should not throw
+      fireEvent.touchMove(chaosContainer, {
+        touches: [{ clientX: 100, clientY: 150 }],
+        preventDefault: vi.fn(),
+      })
+      
+      // If we get here without error, the handler works
+      expect(chaosContainer).toBeInTheDocument()
+    })
+  })
 })

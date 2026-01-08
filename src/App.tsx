@@ -10,10 +10,17 @@ const VIDEO_POOL = [
   '/videos/YTDown.com_YouTube_Happy-Birthday-To-You-Italian-Brainrot-E_Media_yE4CdgogwC4_002_720p.mp4',
 ]
 
+// Minimum swipe distance in pixels to trigger video change
+const SWIPE_THRESHOLD = 50
+
 function App() {
   const [chaosStarted, setChaosStarted] = useState(false)
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const videoRef = useRef<HTMLVideoElement>(null)
+  
+  // Touch tracking refs for swipe detection
+  const touchStartY = useRef<number | null>(null)
+  const touchStartX = useRef<number | null>(null)
 
   /**
    * Unlocks the AudioContext (required for iOS) and initializes Howler.js.
@@ -61,6 +68,63 @@ function App() {
     }
   }, [])
 
+  /**
+   * Navigate to the next video in the pool
+   */
+  const goToNextVideo = useCallback(() => {
+    setCurrentVideoIndex((prev) => (prev + 1) % VIDEO_POOL.length)
+  }, [])
+
+  /**
+   * Navigate to the previous video in the pool
+   */
+  const goToPreviousVideo = useCallback(() => {
+    setCurrentVideoIndex((prev) => (prev - 1 + VIDEO_POOL.length) % VIDEO_POOL.length)
+  }, [])
+
+  /**
+   * Handle touch start - record the starting position
+   */
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    touchStartY.current = touch.clientY
+    touchStartX.current = touch.clientX
+  }, [])
+
+  /**
+   * Handle touch move - prevent default to disable scrolling
+   */
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    // Prevent default scroll behavior
+    e.preventDefault()
+  }, [])
+
+  /**
+   * Handle touch end - determine swipe direction and navigate
+   */
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (touchStartY.current === null) return
+
+    const touch = e.changedTouches[0]
+    const deltaY = touchStartY.current - touch.clientY
+    const deltaX = touchStartX.current !== null ? Math.abs(touchStartX.current - touch.clientX) : 0
+
+    // Only trigger if vertical swipe is more significant than horizontal
+    if (Math.abs(deltaY) > SWIPE_THRESHOLD && Math.abs(deltaY) > deltaX) {
+      if (deltaY > 0) {
+        // Swiped up - go to next video
+        goToNextVideo()
+      } else {
+        // Swiped down - go to previous video
+        goToPreviousVideo()
+      }
+    }
+
+    // Reset touch tracking
+    touchStartY.current = null
+    touchStartX.current = null
+  }, [goToNextVideo, goToPreviousVideo])
+
   // Entry screen - black void waiting for first tap
   if (!chaosStarted) {
     return (
@@ -83,7 +147,13 @@ function App() {
 
   // Chaos mode with TikTok-style vertical video feed
   return (
-    <div className="chaos-container">
+    <div 
+      className="chaos-container"
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      data-testid="chaos-container"
+    >
       <div className="chaos-active">
         {/* Full-screen vertical video feed */}
         <div className="video-feed">
