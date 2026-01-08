@@ -16,7 +16,9 @@ MAX_ITERATIONS=$1
 PRD_FILE="plans/prd.json"
 PROGRESS_FILE="progress.txt"
 COMPLETE_TOKEN="<promise>COMPLETE</promise>"
-CURSOR_MODEL="opus-4.5-thinking"
+CURSOR_MODEL="auto"
+#CURSOR_MODEL="opus-4.5-thinking"
+
 
 # Ensure plans directory exists
 mkdir -p plans

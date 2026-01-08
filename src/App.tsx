@@ -47,6 +47,14 @@ const VIDEO_POOL = [
   '/videos/YTDown.com_YouTube_Happy-Birthday-To-You-Italian-Brainrot-E_Media_yE4CdgogwC4_002_720p.mp4',
 ]
 
+// Image pool - BMW assets in the public/images folder
+// Note: Image files (bmw-white.png, bmw-logo.png) should be added to public/images/
+// This will be used by the BMW integration feature
+export const IMAGE_POOL = {
+  bmwWhite: '/images/bmw-white.png',
+  bmwLogo: '/images/bmw-logo.png',
+}
+
 // Minimum swipe distance in pixels to trigger video change
 const SWIPE_THRESHOLD = 50
 

@@ -25,7 +25,7 @@
         "Verify all media files are accessible via Vite static serving",
         "Set up proper imports in main application file"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",
