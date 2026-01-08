@@ -126,7 +126,7 @@
         "'Happy Birthday' text starts appearing at max chaos",
         "Session maintains chaos state"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "functional",

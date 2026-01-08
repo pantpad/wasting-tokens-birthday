@@ -594,6 +594,185 @@ describe('App', () => {
     })
   })
 
+  describe('Chaos Level Persistence', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    // Helper to simulate touch swipe
+    const simulateSwipe = (element: Element, startY: number, endY: number, startX = 100, endX = 100) => {
+      fireEvent.touchStart(element, {
+        touches: [{ clientX: startX, clientY: startY }],
+      })
+      fireEvent.touchMove(element, {
+        touches: [{ clientX: endX, clientY: (startY + endY) / 2 }],
+      })
+      fireEvent.touchEnd(element, {
+        changedTouches: [{ clientX: endX, clientY: endY }],
+      })
+    }
+
+    it('chaos level stays at 10 after reaching maximum', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Advance 9 seconds to reach max level
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+      
+      // Advance another 10 seconds - should still be at 10
+      act(() => {
+        vi.advanceTimersByTime(10000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+    })
+
+    it('swiping does not reset chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Advance to chaos level 5
+      act(() => {
+        vi.advanceTimersByTime(4000) // Level 1 + 4 increments = level 5
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '5')
+      
+      // Swipe to change video
+      simulateSwipe(chaosContainer, 300, 100) // Swipe up
+      
+      // Chaos level should still be 5 (not reset)
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '5')
+    })
+
+    it('swiping at max chaos does not reset chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Reach max chaos
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+      
+      // Swipe multiple times
+      simulateSwipe(chaosContainer, 300, 100) // Swipe up
+      simulateSwipe(chaosContainer, 100, 300) // Swipe down
+      simulateSwipe(chaosContainer, 300, 100) // Swipe up again
+      
+      // Chaos level should still be at 10
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+    })
+
+    it('Happy Birthday text appears at max chaos level 10', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Happy Birthday should NOT be visible initially
+      expect(screen.queryByTestId('happy-birthday')).not.toBeInTheDocument()
+      
+      // Advance to max chaos level
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      
+      // Happy Birthday text should now be visible
+      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+      expect(screen.getByText('Happy Birthday Michael')).toBeInTheDocument()
+    })
+
+    it('Happy Birthday text does not appear before max chaos', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Test at each level from 1 to 9
+      for (let level = 1; level < 10; level++) {
+        const chaosContainer = screen.getByTestId('chaos-container')
+        expect(chaosContainer).toHaveAttribute('data-chaos-level', String(level))
+        expect(screen.queryByTestId('happy-birthday')).not.toBeInTheDocument()
+        
+        act(() => {
+          vi.advanceTimersByTime(1000)
+        })
+      }
+      
+      // At level 10, it should appear
+      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+    })
+
+    it('Happy Birthday text persists after swiping at max chaos', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Reach max chaos
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      
+      // Verify Happy Birthday is visible
+      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+      
+      // Swipe to change video
+      simulateSwipe(chaosContainer, 300, 100)
+      
+      // Happy Birthday should still be visible
+      expect(screen.getByTestId('happy-birthday')).toBeInTheDocument()
+    })
+
+    it('session maintains chaos state - no mechanism to decrease', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      
+      // Reach max chaos
+      act(() => {
+        vi.advanceTimersByTime(9000)
+      })
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+      
+      // Interact with the container in various ways
+      fireEvent.click(chaosContainer)
+      fireEvent.pointerMove(chaosContainer, { clientX: 100, clientY: 100 })
+      simulateSwipe(chaosContainer, 300, 100)
+      
+      // Wait some more time
+      act(() => {
+        vi.advanceTimersByTime(30000)
+      })
+      
+      // Chaos level should STILL be at 10
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '10')
+    })
+  })
+
   describe('Audio Limiting System', () => {
     it('allows up to 8 simultaneous sounds', () => {
       const { container } = render(<App />)

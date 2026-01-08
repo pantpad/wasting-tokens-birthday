@@ -325,6 +325,9 @@ function App() {
     )
   }
 
+  // Check if we're at max chaos for "Happy Birthday" text
+  const isMaxChaos = chaosLevel >= MAX_CHAOS_LEVEL
+
   // Chaos mode with TikTok-style vertical video feed
   return (
     <div 
@@ -352,6 +355,13 @@ function App() {
             data-testid="chaos-video"
           />
         </div>
+        
+        {/* Happy Birthday text appears at max chaos level */}
+        {isMaxChaos && (
+          <div className="happy-birthday-overlay" data-testid="happy-birthday">
+            <span className="happy-birthday-text">Happy Birthday Michael</span>
+          </div>
+        )}
       </div>
     </div>
   )
