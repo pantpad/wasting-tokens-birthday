@@ -162,7 +162,7 @@
         "Rotation activates at chaos level 4+",
         "Uses CSS transforms for GPU acceleration"
       ],
-      "passes": false
+      "passes": true
     },
     {
       "category": "ui",

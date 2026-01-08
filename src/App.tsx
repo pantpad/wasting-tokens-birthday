@@ -24,6 +24,11 @@ const MAX_VELOCITY = 0.5 // Maximum velocity at max chaos
 const VELOCITY_CHANGE_CHANCE = 0.01 // 1% chance per frame to change velocity randomly
 const VELOCITY_CHANGE_MAGNITUDE = 0.2 // How much velocity can change randomly
 
+// Rotation and spinning constants
+const ROTATION_START_LEVEL = 4 // Chaos level when rotation/spinning begins
+const MIN_SPIN_SPEED = 0.2 // Minimum spin speed (degrees per frame)
+const MAX_SPIN_SPEED = 2.0 // Maximum spin speed (degrees per frame)
+
 // Audio pool - available audio files in the public/audios folder
 const AUDIO_POOL = [
   '/audios/30 Celebrities Fight For _1,000,000_ [QJI0an6irrA].mp3',
@@ -59,6 +64,7 @@ interface VideoClone {
   scale: number // Scale factor
   vx: number // Velocity X (percentage per frame)
   vy: number // Velocity Y (percentage per frame)
+  spinSpeed: number // Spin speed (degrees per frame, 0 if not spinning)
 }
 
 // Video pool - available videos in the public/videos folder
@@ -183,6 +189,23 @@ function App() {
       const vx = Math.cos(angle) * velocity
       const vy = Math.sin(angle) * velocity
       
+      // Calculate spin speed if rotation is active (chaos level 4+)
+      let spinSpeed = 0
+      if (chaosLevel >= ROTATION_START_LEVEL) {
+        // Some videos spin continuously, some don't (70% chance to spin)
+        if (Math.random() < 0.7) {
+          // Spin speed varies per video (random between min and max)
+          // Speed also scales with chaos level
+          const levelProgress = (chaosLevel - ROTATION_START_LEVEL) / (MAX_CHAOS_LEVEL - ROTATION_START_LEVEL)
+          const baseSpinSpeed = MIN_SPIN_SPEED + Math.random() * (MAX_SPIN_SPEED - MIN_SPIN_SPEED)
+          spinSpeed = baseSpinSpeed * (1 + levelProgress) // Faster at higher chaos levels
+          // Random direction (clockwise or counterclockwise)
+          if (Math.random() < 0.5) {
+            spinSpeed = -spinSpeed
+          }
+        }
+      }
+      
       clones.push({
         id: `clone-${i}-${Date.now()}-${Math.random()}`,
         // Random position (0-100% for both axes, but keep some on screen)
@@ -195,6 +218,8 @@ function App() {
         // Initial velocity
         vx,
         vy,
+        // Spin speed (0 if not spinning)
+        spinSpeed,
       })
     }
 
@@ -203,13 +228,17 @@ function App() {
   }, [chaosStarted, chaosLevel, currentVideoIndex]) // Regenerate when video changes too
 
   /**
-   * DVD screensaver-style bouncing physics for video clones.
+   * DVD screensaver-style bouncing physics and rotation for video clones.
    * Videos bounce around screen with physics, can escape edges and return unexpectedly.
    * Bouncing intensity increases with chaos level.
+   * Rotation/spinning activates at chaos level 4+.
    */
   useEffect(() => {
-    if (!chaosStarted || chaosLevel < BOUNCE_START_LEVEL) {
-      // Stop animation if bouncing shouldn't be active
+    // Animation loop runs if bouncing (level 3+) OR rotation (level 4+) is active
+    const shouldAnimate = chaosStarted && (chaosLevel >= BOUNCE_START_LEVEL || chaosLevel >= ROTATION_START_LEVEL)
+    
+    if (!shouldAnimate) {
+      // Stop animation if neither bouncing nor rotation should be active
       if (animationFrameRef.current !== null) {
         cancelAnimationFrame(animationFrameRef.current)
         animationFrameRef.current = null
@@ -225,7 +254,7 @@ function App() {
       setVideoClones((prevClones) => {
         // Update ref for next frame
         const updatedClones = prevClones.map((clone) => {
-          let { x, y, vx, vy } = clone
+          let { x, y, vx, vy, rotation, spinSpeed } = clone
 
           // Apply random velocity changes occasionally (DVD screensaver quirk)
           if (Math.random() < VELOCITY_CHANGE_CHANCE) {
@@ -240,6 +269,13 @@ function App() {
           // Update position
           x += scaledVx
           y += scaledVy
+
+          // Update rotation if spinning (chaos level 4+)
+          if (spinSpeed !== 0) {
+            rotation += spinSpeed
+            // Keep rotation in reasonable range to prevent overflow
+            rotation = rotation % 360
+          }
 
           // Handle edge collisions with bouncing
           // Videos can escape edges and return unexpectedly (DVD screensaver behavior)
@@ -268,6 +304,7 @@ function App() {
             y,
             vx,
             vy,
+            rotation,
           }
         })
 

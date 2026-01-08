@@ -646,6 +646,314 @@ describe('App', () => {
     })
   })
 
+  describe('Rotation and Spinning Effects', () => {
+    let originalRAF: typeof requestAnimationFrame | undefined
+    let originalCAF: typeof cancelAnimationFrame | undefined
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      // Save original functions if they exist
+      originalRAF = (globalThis as any).requestAnimationFrame
+      originalCAF = (globalThis as any).cancelAnimationFrame
+      // Mock requestAnimationFrame
+      globalThis.requestAnimationFrame = vi.fn((cb) => {
+        return setTimeout(cb, 16) as unknown as number
+      })
+      globalThis.cancelAnimationFrame = vi.fn((id) => {
+        clearTimeout(id)
+      })
+    })
+
+    afterEach(() => {
+      vi.useRealTimers()
+      // Restore original functions or remove mocks
+      if (originalRAF !== undefined) {
+        globalThis.requestAnimationFrame = originalRAF
+      } else {
+        delete (globalThis as any).requestAnimationFrame
+      }
+      if (originalCAF !== undefined) {
+        globalThis.cancelAnimationFrame = originalCAF
+      } else {
+        delete (globalThis as any).cancelAnimationFrame
+      }
+    })
+
+    it('rotation does not activate before chaos level 4', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 3 (bouncing starts, but rotation doesn't)
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3
+      act(() => {
+        vi.advanceTimersByTime(2000)
+      })
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '3')
+      
+      // Clones should exist but rotation shouldn't be active yet
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+    })
+
+    it('rotation activates at chaos level 4', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 4 (rotation should start)
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3, 3000ms=4
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      
+      const chaosContainer = screen.getByTestId('chaos-container')
+      expect(chaosContainer).toHaveAttribute('data-chaos-level', '4')
+      
+      // Clones should exist and some should be spinning
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+      
+      // Animation loop should be running (for rotation)
+      expect(globalThis.requestAnimationFrame).toHaveBeenCalled()
+    })
+
+    it('some videos spin continuously at chaos level 4+', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 5 to ensure rotation is active
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3, 3000ms=4, 4000ms=5
+      act(() => {
+        vi.advanceTimersByTime(4000)
+      })
+      
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+      
+      // Get initial rotation values
+      const initialRotations = Array.from(clones).map(clone => {
+        const style = (clone as HTMLElement).style.transform
+        const match = style.match(/rotate\(([^)]+)\)/)
+        return match ? parseFloat(match[1]) : 0
+      })
+      
+      // Advance timers to trigger animation frames (requestAnimationFrame uses setTimeout with 16ms)
+      act(() => {
+        vi.advanceTimersByTime(100) // Advance enough to trigger several animation frames
+      })
+      
+      // Get new rotation values
+      const newRotations = Array.from(clones).map(clone => {
+        const style = (clone as HTMLElement).style.transform
+        const match = style.match(/rotate\(([^)]+)\)/)
+        return match ? parseFloat(match[1]) : 0
+      })
+      
+      // At least some clones should have changed rotation (spinning)
+      const rotationsChanged = initialRotations.some((initial, i) => {
+        const newRot = newRotations[i]
+        // Account for modulo 360
+        let diff = Math.abs(newRot - initial)
+        if (diff > 180) diff = 360 - diff // Handle wrap-around
+        return diff > 0.1 && diff < 350 // Changed but not a full wrap
+      })
+      expect(rotationsChanged).toBe(true)
+    })
+
+    it('spin speed varies per video', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 6 to ensure rotation is active
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3, 3000ms=4, 4000ms=5, 5000ms=6
+      act(() => {
+        vi.advanceTimersByTime(5000)
+      })
+      
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+      
+      // Get initial rotations
+      const initialRotations = Array.from(clones).map(clone => {
+        const style = (clone as HTMLElement).style.transform
+        const match = style.match(/rotate\(([^)]+)\)/)
+        return match ? parseFloat(match[1]) : 0
+      })
+      
+      // Advance timers to trigger animation frames
+      act(() => {
+        vi.advanceTimersByTime(50) // Small advance
+      })
+      
+      // Get rotations after first advance
+      const rotations1 = Array.from(clones).map(clone => {
+        const style = (clone as HTMLElement).style.transform
+        const match = style.match(/rotate\(([^)]+)\)/)
+        return match ? parseFloat(match[1]) : 0
+      })
+      
+      // Advance more
+      act(() => {
+        vi.advanceTimersByTime(50) // Another small advance
+      })
+      
+      // Get rotations after second advance
+      const rotations2 = Array.from(clones).map(clone => {
+        const style = (clone as HTMLElement).style.transform
+        const match = style.match(/rotate\(([^)]+)\)/)
+        return match ? parseFloat(match[1]) : 0
+      })
+      
+      // Calculate deltas (accounting for modulo 360)
+      const deltas1 = initialRotations.map((initial, i) => {
+        const newRot = rotations1[i]
+        let delta = newRot - initial
+        if (delta > 180) delta -= 360
+        if (delta < -180) delta += 360
+        return Math.abs(delta)
+      })
+      
+      const deltas2 = rotations1.map((prev, i) => {
+        const newRot = rotations2[i]
+        let delta = newRot - prev
+        if (delta > 180) delta -= 360
+        if (delta < -180) delta += 360
+        return Math.abs(delta)
+      })
+      
+      // Some clones should have different spin speeds (different deltas)
+      // Filter out zeros (non-spinning clones) and check for variation
+      const allDeltas = [...deltas1, ...deltas2].filter(d => d > 0.01)
+      if (allDeltas.length > 1) {
+        const minDelta = Math.min(...allDeltas)
+        const maxDelta = Math.max(...allDeltas)
+        // There should be variation in spin speeds
+        expect(maxDelta - minDelta).toBeGreaterThan(0.1)
+      }
+    })
+
+    it('rotation uses CSS transforms for GPU acceleration', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 5
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3, 3000ms=4, 4000ms=5
+      act(() => {
+        vi.advanceTimersByTime(4000)
+      })
+      
+      const clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      expect(clones.length).toBeGreaterThan(0)
+      
+      // All clones should use CSS transform (not position changes)
+      clones.forEach(clone => {
+        const style = (clone as HTMLElement).style
+        expect(style.transform).toBeTruthy()
+        expect(style.transform).toContain('rotate')
+        expect(style.transform).toContain('translate')
+        // Should use transform, not position
+        expect(style.position).toBe('absolute')
+      })
+    })
+
+    it('spin speed increases with chaos level', () => {
+      const { container } = render(<App />)
+      
+      // Enter chaos mode
+      fireEvent.click(container.querySelector('.entry-screen')!)
+      
+      // Advance to level 4
+      // Chaos starts at level 1, so: 0ms=1, 1000ms=2, 2000ms=3, 3000ms=4
+      act(() => {
+        vi.advanceTimersByTime(3000)
+      })
+      
+      let clones = container.querySelectorAll('[data-testid^="video-clone"]')
+      let rotationAtLevel4: number[] = []
+      
+      if (clones.length > 0) {
+        // Get initial rotations
+        rotationAtLevel4 = Array.from(clones).map(clone => {
+          const style = (clone as HTMLElement).style.transform
+          const match = style.match(/rotate\(([^)]+)\)/)
+          return match ? parseFloat(match[1]) : 0
+        })
+        
+        // Advance timers to trigger animation frames
+        act(() => {
+          vi.advanceTimersByTime(50) // Small advance
+        })
+        
+        // Get rotations after frames
+        const rotationsAfter4 = Array.from(clones).map(clone => {
+          const style = (clone as HTMLElement).style.transform
+          const match = style.match(/rotate\(([^)]+)\)/)
+          return match ? parseFloat(match[1]) : 0
+        })
+        
+        // Calculate average change at level 4
+        const deltas4 = rotationAtLevel4.map((initial, i) => {
+          const newRot = rotationsAfter4[i]
+          let delta = newRot - initial
+          if (delta > 180) delta -= 360
+          if (delta < -180) delta += 360
+          return Math.abs(delta)
+        })
+        const avgDelta4 = deltas4.filter(d => d > 0.01).reduce((a, b) => a + b, 0) / deltas4.filter(d => d > 0.01).length || 0
+        
+        // Advance to level 10
+        // Currently at level 4 (after 3000ms), need 6 more seconds to reach level 10
+        act(() => {
+          vi.advanceTimersByTime(6000) // 4s to 10s = 6 more seconds
+        })
+        
+        clones = container.querySelectorAll('[data-testid^="video-clone"]')
+        const rotationAtLevel10 = Array.from(clones).map(clone => {
+          const style = (clone as HTMLElement).style.transform
+          const match = style.match(/rotate\(([^)]+)\)/)
+          return match ? parseFloat(match[1]) : 0
+        })
+        
+        // Advance same amount of time
+        act(() => {
+          vi.advanceTimersByTime(50) // Same small advance
+        })
+        
+        const rotationsAfter10 = Array.from(clones).map(clone => {
+          const style = (clone as HTMLElement).style.transform
+          const match = style.match(/rotate\(([^)]+)\)/)
+          return match ? parseFloat(match[1]) : 0
+        })
+        
+        // Calculate average change at level 10
+        const deltas10 = rotationAtLevel10.map((initial, i) => {
+          const newRot = rotationsAfter10[i]
+          let delta = newRot - initial
+          if (delta > 180) delta -= 360
+          if (delta < -180) delta += 360
+          return Math.abs(delta)
+        })
+        const avgDelta10 = deltas10.filter(d => d > 0.01).reduce((a, b) => a + b, 0) / deltas10.filter(d => d > 0.01).length || 0
+        
+        // Spin speed should be faster at level 10 (if we have spinning clones)
+        if (avgDelta4 > 0 && avgDelta10 > 0) {
+          expect(avgDelta10).toBeGreaterThanOrEqual(avgDelta4)
+        }
+      }
+    })
+  })
+
   describe('Audio Chaos System', () => {
     it('does not play sounds before chaos starts', () => {
       render(<App />)

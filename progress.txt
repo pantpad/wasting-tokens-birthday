@@ -400,3 +400,43 @@
 - Good next priorities: "Rotation and spinning effects" (to enhance bouncing clones), "Color manipulation effects", or "Zoom pulses"
 - The bouncing system works seamlessly with the existing clone system
 - Animation uses requestAnimationFrame for optimal performance
+
+## 2026-01-08 20:49 UTC - Feature: Rotation and Spinning Effects Apply to Videos
+
+### Implemented
+- Added spinSpeed property to VideoClone interface (degrees per frame, 0 if not spinning)
+- Added rotation constants:
+  - ROTATION_START_LEVEL = 4 (chaos level when rotation/spinning begins)
+  - MIN_SPIN_SPEED = 0.2 degrees per frame (minimum spin speed)
+  - MAX_SPIN_SPEED = 2.0 degrees per frame (maximum spin speed)
+- Updated clone generation to assign spinSpeed when chaos level >= 4:
+  - 70% chance for a clone to spin (30% remain static)
+  - Spin speed varies per video (random between min and max)
+  - Spin speed scales with chaos level (faster at higher levels)
+  - Random direction (clockwise or counterclockwise)
+- Updated animation loop to continuously update rotation for spinning clones:
+  - Rotation increments by spinSpeed each frame
+  - Rotation wraps at 360 degrees to prevent overflow
+  - Rotation updates only when bouncing animation is active (level 3+)
+- Updated animation loop condition to run when either bouncing (level 3+) OR rotation (level 4+) is active
+- Rotation uses existing CSS transforms for GPU acceleration (already in place)
+
+### Files Changed
+- src/App.tsx - Added ROTATION_START_LEVEL, MIN_SPIN_SPEED, MAX_SPIN_SPEED constants, spinSpeed to VideoClone interface, spin speed calculation in clone generation, rotation update in animation loop
+- src/App.test.tsx - Added 6 new tests for rotation and spinning effects (72 total tests), including tests for activation timing, continuous spinning, speed variation, CSS transforms, and speed scaling with chaos level
+
+### Verified
+- pnpm typecheck passes
+- pnpm test passes (72 tests, including 6 new rotation tests)
+- Rotation activates at chaos level 4 and scales with level
+- Some videos spin continuously while others remain static
+- Spin speed varies per video
+- Rotation uses CSS transforms for GPU acceleration
+
+### Notes for Next Agent
+- Rotation and spinning effects are now fully functional
+- Videos spin continuously at chaos level 4+ with varying speeds
+- Spin speed increases with chaos level for more intense effects
+- Good next priorities: "Color manipulation effects" (hue rotation, color inversion), "Zoom pulses", or "Video playback speed changes"
+- The rotation system integrates seamlessly with the existing bouncing physics
+- All visual effects use CSS transforms for optimal GPU-accelerated performance
